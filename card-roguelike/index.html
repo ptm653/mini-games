@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2a1b4d">
+<title>常夏の探索 — SUMMER HUNT</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  :root{
+    --gold:#ffd34d; --mint:#3fe0bf; --danger:#ff5d5d; --ink:#241a38;
+    --panel:rgba(32,22,54,0.72); --panel2:rgba(48,34,78,0.86);
+    --line:rgba(255,255,255,0.14); --txt:#fff4e6; --sub:#d9c7f0;
+  }
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;
+    font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;
+    color:var(--txt); background:#1a1130; user-select:none;-webkit-user-select:none;}
+  #app{position:fixed;inset:0;height:100dvh;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#ff8e5e 0%,#ff6f91 32%,#7d4bb0 70%,#2a1b4d 100%);}
+  .screen{flex:1;min-height:0;display:none;flex-direction:column;}
+  .screen.on{display:flex;}
+
+  #title{justify-content:center;align-items:center;text-align:center;padding:24px 20px;gap:14px;}
+  #title .sub{font-size:clamp(12px,3.4vw,15px);letter-spacing:.42em;color:var(--gold);font-weight:800;padding-left:.42em;}
+  #title .logo{font-size:clamp(30px,9vw,46px);font-weight:800;letter-spacing:.06em;text-shadow:0 3px 0 rgba(0,0,0,.25);}
+  #title .lead{font-size:clamp(12px,3.4vw,14px);color:var(--sub);line-height:1.7;max-width:300px;}
+  .howto{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;max-width:320px;font-size:13px;line-height:1.75;color:var(--sub);text-align:left;}
+  .howto b{color:var(--gold);}
+
+  .btn{appearance:none;border:none;border-radius:14px;cursor:pointer;font-family:inherit;font-weight:800;
+    color:var(--ink);background:linear-gradient(180deg,#ffe08a,#ffc53d);
+    box-shadow:0 4px 0 #c88a1e,0 6px 14px rgba(0,0,0,.3);transition:transform .05s,box-shadow .05s;padding:0 18px;}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c88a1e,0 3px 8px rgba(0,0,0,.3);}
+  .btn-lg{width:260px;max-width:80vw;height:60px;font-size:19px;}
+  .btn-mint{background:linear-gradient(180deg,#8bf5dd,#2fd3b0);box-shadow:0 4px 0 #1b8c76,0 6px 14px rgba(0,0,0,.3);}
+  .btn-mint:active{box-shadow:0 1px 0 #1b8c76,0 3px 8px rgba(0,0,0,.3);}
+
+  #battle{padding:8px 10px 10px;gap:8px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--sub);padding:0 4px;min-height:18px;}
+  .topbar .floor{font-weight:800;color:var(--gold);letter-spacing:.04em;}
+  .enemy{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 12px 14px;
+    display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;}
+  .enemy .face{font-size:clamp(42px,14vw,62px);line-height:1;filter:drop-shadow(0 4px 6px rgba(0,0,0,.35));}
+  .enemy .ename{font-size:15px;font-weight:800;text-align:center;padding:0 60px;line-height:1.2;}
+  .intent{position:absolute;top:10px;right:12px;display:flex;align-items:center;gap:5px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;}
+  .intent .ic{font-size:17px;} .intent .iv{font-size:16px;font-weight:800;}
+  .intent.atk .iv{color:var(--danger);} .intent.big .iv{color:#ff3b3b;} .intent.def .iv{color:#7fd4ff;}
+  .hpbar{width:100%;height:16px;border-radius:999px;background:rgba(0,0,0,.35);overflow:hidden;position:relative;border:1px solid var(--line);}
+  .hpbar>i{display:block;height:100%;background:linear-gradient(90deg,#ff6a6a,#ff3b6b);transition:width .25s;}
+  .hpbar .lbl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  .pstat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:10px;}
+  .pstat .php{flex:1;min-width:0;}
+  .pstat .php .hpbar>i{background:linear-gradient(90deg,#5bf0a0,#2bd47a);}
+  .pstat .blk{display:flex;align-items:center;gap:3px;font-size:14px;font-weight:800;color:#8fd3ff;min-width:46px;justify-content:center;}
+  .pstat .energy{display:flex;gap:4px;align-items:center;}
+  .pip{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.18);border:1px solid var(--line);}
+  .pip.on{background:radial-gradient(circle at 35% 30%,#fff2a8,#ffcf3a);box-shadow:0 0 8px #ffcf3a;}
+  .hand{flex:1;min-height:0;display:flex;gap:6px;align-items:stretch;justify-content:center;padding:4px 2px;}
+  .card{flex:1 1 0;min-width:0;max-width:92px;background:linear-gradient(180deg,#fdf5e8,#f2e3cf);color:#2a2038;
+    border-radius:12px;border:2px solid #d8c29a;padding:8px 5px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:5px;position:relative;box-shadow:0 3px 8px rgba(0,0,0,.3);transition:transform .08s;overflow:hidden;}
+  .card:active{transform:translateY(-4px);}
+  .card.dis{opacity:.45;filter:grayscale(.5);}
+  .card .cost{position:absolute;top:-7px;left:-7px;width:25px;height:25px;border-radius:50%;
+    background:linear-gradient(180deg,#8bd0ff,#3a8fe0);color:#fff;font-size:14px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.3);}
+  .card .cicon{font-size:24px;line-height:1;}
+  .card .cname{font-size:12px;font-weight:800;text-align:center;line-height:1.15;}
+  .card .cdesc{font-size:10.5px;color:#5a4a6a;text-align:center;line-height:1.25;}
+  .actbar{display:flex;justify-content:center;}
+  .btn-end{width:220px;max-width:70vw;height:50px;font-size:17px;}
+
+  #reward,#over,#clear{justify-content:center;align-items:center;text-align:center;padding:22px 18px;gap:16px;}
+  .rtitle{font-size:22px;font-weight:800;color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.25);}
+  .rsub{font-size:13px;color:var(--sub);line-height:1.6;max-width:320px;}
+  .rcards{display:flex;gap:10px;justify-content:center;width:100%;max-width:360px;}
+  .rcard{flex:1 1 0;min-width:0;background:linear-gradient(180deg,#fdf5e8,#f2e3cf);color:#2a2038;border-radius:14px;
+    border:2px solid #d8c29a;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;
+    box-shadow:0 4px 10px rgba(0,0,0,.3);position:relative;}
+  .rcard:active{transform:translateY(-4px);}
+  .rcard .cost{position:absolute;top:-9px;left:-9px;width:28px;height:28px;border-radius:50%;
+    background:linear-gradient(180deg,#8bd0ff,#3a8fe0);color:#fff;font-size:16px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;border:2px solid #fff;}
+  .rcard .cicon{font-size:30px;} .rcard .cname{font-size:14px;font-weight:800;}
+  .rcard .cdesc{font-size:11px;color:#5a4a6a;line-height:1.3;}
+  .bigface{font-size:72px;line-height:1;}
+  #clear .rtitle{color:var(--mint);}
+  #over .rtitle{color:var(--danger);}
+  .result-note{font-size:13px;color:var(--sub);line-height:1.7;max-width:300px;}
+  .toast{position:fixed;left:50%;top:13%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;
+    padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;}
+  .toast.on{opacity:1;}
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="title" class="screen on">
+    <div class="sub">SUMMER HUNT</div>
+    <div class="logo">常夏の探索</div>
+    <div class="lead">灼けつく島の奥へ。手札を切り、カードを集め、真夏の主を討て。</div>
+    <div class="howto">
+      <b>あそびかた</b><br>
+      毎ターン <b>エネルギー ⚡3</b> の範囲で、カードをタップして出す。<br>
+      敵の頭上の<b>予告</b>（⚔攻撃・💢大技・🛡防御）を読み、守りで受けるか攻めるかを選ぶ。<br>
+      敵を倒すとカードを1枚もらえる。全5戦を勝ち抜こう。
+    </div>
+    <button class="btn btn-lg" onclick="Game.start()">探索を はじめる</button>
+  </section>
+
+  <section id="battle" class="screen">
+    <div class="topbar"><span class="floor" id="floorLbl">第1戦</span><span id="deckLbl">山札 0 / 捨 0</span></div>
+    <div class="enemy">
+      <div class="intent" id="intent"><span class="ic">⚔</span><span class="iv">0</span></div>
+      <div class="face" id="eface">🪼</div>
+      <div class="ename" id="ename">？？？</div>
+      <div class="hpbar"><i id="ehpfill"></i><span class="lbl" id="ehplbl">0/0</span></div>
+    </div>
+    <div class="pstat">
+      <div class="blk" id="pblk">🛡 0</div>
+      <div class="php"><div class="hpbar"><i id="phpfill"></i><span class="lbl" id="phplbl">0/0</span></div></div>
+      <div class="energy" id="energy"></div>
+    </div>
+    <div class="hand" id="hand"></div>
+    <div class="actbar"><button class="btn btn-mint btn-end" onclick="Game.endTurn()">ターン終了</button></div>
+  </section>
+
+  <section id="reward" class="screen">
+    <div class="rtitle">勝利！</div>
+    <div class="rsub" id="rewardSub">カードを1枚えらんでデッキに加える</div>
+    <div class="rcards" id="rcards"></div>
+  </section>
+
+  <section id="clear" class="screen">
+    <div class="bigface">🏆</div>
+    <div class="rtitle">クリア！</div>
+    <div class="result-note" id="clearNote"></div>
+    <button class="btn btn-lg" onclick="Game.toTitle()">もう一度</button>
+  </section>
+
+  <section id="over" class="screen">
+    <div class="bigface">💀</div>
+    <div class="rtitle">ゲームオーバー</div>
+    <div class="result-note" id="overNote"></div>
+    <button class="btn btn-lg" onclick="Game.toTitle()">タイトルへ</button>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const CARDS={
+    strike:{name:"斬撃",cost:1,icon:"🗡",type:"攻",desc:"6ダメージ",dmg:6},
+    guard:{name:"守り",cost:1,icon:"🛡",type:"防",desc:"ブロック5",block:5},
+    heavy:{name:"強撃",cost:2,icon:"⚔",type:"攻",desc:"10ダメージ",dmg:10},
+    double:{name:"連打",cost:1,icon:"🌀",type:"攻",desc:"4×2ダメージ",dmg:4,hits:2},
+    swing:{name:"大振り",cost:2,icon:"💥",type:"攻",desc:"16ダメージ",dmg:16},
+    wall:{name:"鉄壁",cost:2,icon:"🧱",type:"防",desc:"ブロック12",block:12},
+    heal:{name:"癒しの風",cost:1,icon:"🍃",type:"回",desc:"HP回復7",heal:7},
+    pierce:{name:"貫き",cost:1,icon:"🏹",type:"攻",desc:"貫通7ダメ",dmg:7,pierce:true},
+    quick:{name:"速攻",cost:0,icon:"⚡",type:"攻",desc:"3ダメージ",dmg:3},
+    storm:{name:"嵐撃",cost:2,icon:"🌊",type:"攻",desc:"3×4ダメージ",dmg:3,hits:4},
+    focus:{name:"見極め",cost:1,icon:"🔎",type:"技",desc:"2枚引く",draw:2},
+    brace:{name:"気合",cost:1,icon:"✊",type:"防",desc:"ブロック8",block:8}
+  };
+  const REWARD_POOL=["double","swing","wall","heal","pierce","quick","storm","focus","brace"];
+  function mk(type,value){return {type:type,value:value};}
+  const STAGES=[
+    {name:"クラゲ風船",face:"🪼",hp:22,ai:function(t){return t%4===3?mk("atk",5):mk("atk",7);}},
+    {name:"砂かけ蟲",face:"🦂",hp:28,ai:function(t){return t%3===2?mk("def",6):mk("atk",9);}},
+    {name:"陽炎トカゲ",face:"🦎",hp:34,ai:function(t){return [mk("atk",8),mk("big",15),mk("atk",8)][t%3];}},
+    {name:"灯籠お化け",face:"🏮",hp:40,ai:function(t){return [mk("atk",11),mk("def",8),mk("big",14)][t%3];}},
+    {name:"真夏の大入道",face:"👹",hp:80,boss:true,ai:function(t){return [mk("atk",10),mk("big",20),mk("def",12),mk("atk",14)][t%4];}}
+  ];
+  const S={};
+  const $=function(id){return document.getElementById(id);};
+  function show(scr){var a=document.querySelectorAll(".screen");for(var i=0;i<a.length;i++)a[i].classList.remove("on");$(scr).classList.add("on");}
+  var toastT;
+  function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove("on");},900);}
+  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.random()*(i+1)|0;var x=a[i];a[i]=a[j];a[j]=x;}return a;}
+  var Game={
+    start:function(){
+      S.hp=42;S.maxHp=42;
+      S.deck=["strike","strike","strike","strike","strike","guard","guard","guard","guard","heavy"];
+      S.stage=0;Game.startBattle();
+    },
+    toTitle:function(){show("title");},
+    startBattle:function(){
+      var d=STAGES[S.stage];
+      S.enemy={name:d.name,face:d.face,hp:d.hp,maxHp:d.hp,block:0,boss:d.boss,ai:d.ai};
+      S.turn=0;S.enemy.intent=d.ai(0);
+      S.draw=shuffle(S.deck.slice());S.discard=[];S.hand=[];
+      Game.newPlayerTurn();show("battle");
+    },
+    newPlayerTurn:function(){
+      S.energy=3;S.block=0;
+      for(var i=0;i<S.hand.length;i++)S.discard.push(S.hand[i]);
+      S.hand=[];Game.drawCards(5);Game.render();
+    },
+    drawCards:function(n){
+      for(var i=0;i<n;i++){
+        if(S.draw.length===0){if(S.discard.length===0)break;S.draw=shuffle(S.discard);S.discard=[];}
+        S.hand.push(S.draw.pop());
+      }
+    },
+    playCard:function(idx){
+      var id=S.hand[idx];var c=CARDS[id];
+      if(!c||c.cost>S.energy){toast("エネルギー不足");return;}
+      S.energy-=c.cost;S.hand.splice(idx,1);S.discard.push(id);
+      if(c.block)S.block+=c.block;
+      if(c.heal)S.hp=Math.min(S.maxHp,S.hp+c.heal);
+      if(c.draw)Game.drawCards(c.draw);
+      if(c.dmg){var h=c.hits||1;for(var k=0;k<h;k++)Game.dealToEnemy(c.dmg,c.pierce);}
+      if(S.enemy.hp<=0){Game.win();return;}
+      Game.render();
+    },
+    dealToEnemy:function(dmg,pierce){
+      var d=dmg;
+      if(!pierce&&S.enemy.block>0){var ab=Math.min(S.enemy.block,d);S.enemy.block-=ab;d-=ab;}
+      S.enemy.hp-=d;
+    },
+    dealToPlayer:function(dmg){
+      var d=dmg;
+      if(S.block>0){var ab=Math.min(S.block,d);S.block-=ab;d-=ab;}
+      S.hp-=d;
+    },
+    endTurn:function(){
+      var it=S.enemy.intent;S.enemy.block=0;
+      if(it.type==="atk"||it.type==="big")Game.dealToPlayer(it.value);
+      else if(it.type==="def")S.enemy.block=it.value;
+      if(S.hp<=0){Game.lose();return;}
+      S.turn++;S.enemy.intent=S.enemy.ai(S.turn);
+      Game.newPlayerTurn();
+    },
+    win:function(){
+      if(STAGES[S.stage].boss){Game.clear();return;}
+      S.hp=Math.min(S.maxHp,S.hp+6);
+      var pool=shuffle(REWARD_POOL.slice()).slice(0,3);
+      var box=$("rcards");box.innerHTML="";
+      pool.forEach(function(id){
+        var c=CARDS[id];var el=document.createElement("div");el.className="rcard";
+        el.innerHTML='<div class="cost">'+c.cost+'</div><div class="cicon">'+c.icon+'</div><div class="cname">'+c.name+'</div><div class="cdesc">'+c.desc+'</div>';
+        el.onclick=function(){Game.pick(id);};box.appendChild(el);
+      });
+      $("rewardSub").textContent="HP+6で回復（現在 "+S.hp+"/"+S.maxHp+"）。カードを1枚えらぶ";
+      show("reward");
+    },
+    pick:function(id){S.deck.push(id);S.stage++;Game.startBattle();},
+    clear:function(){$("clearNote").innerHTML="真夏の主を討ち取った！<br>デッキ "+S.deck.length+"枚 ／ 残りHP "+S.hp;show("clear");},
+    lose:function(){$("overNote").innerHTML=S.enemy.name+" に敗れた…<br>第"+(S.stage+1)+"戦で力尽きた。";show("over");},
+    render:function(){
+      var e=S.enemy;
+      $("floorLbl").textContent=(S.stage<STAGES.length-1?"第"+(S.stage+1)+"戦":"最終戦 ボス");
+      $("deckLbl").textContent="山札 "+S.draw.length+" / 捨 "+S.discard.length;
+      $("eface").textContent=e.face;
+      $("ename").textContent=e.name+(e.block>0?" 🛡"+e.block:"");
+      $("ehpfill").style.width=Math.max(0,e.hp/e.maxHp*100)+"%";
+      $("ehplbl").textContent=Math.max(0,e.hp)+"/"+e.maxHp;
+      var it=e.intent,ib=$("intent"),ic="⚔",cls="atk";
+      if(it.type==="big"){ic="💢";cls="big";}else if(it.type==="def"){ic="🛡";cls="def";}
+      ib.className="intent "+cls;ib.innerHTML='<span class="ic">'+ic+'</span><span class="iv">'+it.value+'</span>';
+      $("phpfill").style.width=Math.max(0,S.hp/S.maxHp*100)+"%";
+      $("phplbl").textContent=Math.max(0,S.hp)+"/"+S.maxHp;
+      $("pblk").textContent="🛡 "+S.block;
+      var en=$("energy");en.innerHTML="";
+      for(var i=0;i<3;i++){var p=document.createElement("div");p.className="pip"+(i<S.energy?" on":"");en.appendChild(p);}
+      var h=$("hand");h.innerHTML="";
+      S.hand.forEach(function(id,idx){
+        var c=CARDS[id];var el=document.createElement("div");
+        el.className="card"+(c.cost>S.energy?" dis":"");
+        el.innerHTML='<div class="cost">'+c.cost+'</div><div class="cicon">'+c.icon+'</div><div class="cname">'+c.name+'</div><div class="cdesc">'+c.desc+'</div>';
+        el.onclick=function(){Game.playCard(idx);};h.appendChild(el);
+      });
+    }
+  };
+  window.Game=Game;
+})();
+</script>
+</body>
+</html>
