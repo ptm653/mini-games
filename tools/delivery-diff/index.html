@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>納品差分の機械照合ツール</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+    --text: #1b1f27;
+    --muted: #5a6372;
+    --border: #cfd4dd;
+    --accent: #1f5fbf;
+    --accent-text: #ffffff;
+    --in-bg: #e2f3e8;
+    --in-text: #17603a;
+    --in-border: #8cc7a4;
+    --out-bg: #fde6e3;
+    --out-text: #a1241a;
+    --out-border: #e79a92;
+    --warn-bg: #fff3d1;
+    --warn-text: #6b4a00;
+    --warn-border: #e2c367;
+    --add: #17603a;
+    --chg: #7a5200;
+    --del: #a1241a;
+    --focus: #1f5fbf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --surface: #1d2129;
+      --surface-2: #272c36;
+      --text: #e7eaf0;
+      --muted: #a2abba;
+      --border: #3a414e;
+      --accent: #78aaf5;
+      --accent-text: #0e1420;
+      --in-bg: #16382a;
+      --in-text: #9be0b8;
+      --in-border: #2f6e4d;
+      --out-bg: #4a1d1a;
+      --out-text: #ffb4ab;
+      --out-border: #8a3a33;
+      --warn-bg: #3d3110;
+      --warn-text: #f4d98a;
+      --warn-border: #7a6420;
+      --add: #9be0b8;
+      --chg: #f0cf7e;
+      --del: #ffb4ab;
+      --focus: #9cc2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+      "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .mono, textarea.manifest, textarea.scope, pre, .path, .fp {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 16px 16px 64px; }
+  header h1 { font-size: 1.4rem; margin: 8px 0 4px; line-height: 1.3; }
+  header p { margin: 0 0 16px; color: var(--muted); font-size: .92rem; }
+  h2 { font-size: 1.08rem; margin: 0 0 10px; }
+  section.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .inputs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @media (min-width: 760px) {
+    .inputs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
+  .field { min-width: 0; }
+  label.lbl { display: block; font-weight: 700; margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: .84rem; margin: 2px 0 6px; }
+  textarea, input[type="text"] {
+    width: 100%;
+    max-width: 100%;
+    font-size: 16px; /* 16px 未満だと iOS が入力時にズームする */
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  textarea.manifest { min-height: 190px; resize: vertical; white-space: pre; overflow: auto; font-size: 14px; }
+  textarea.scope { min-height: 96px; resize: vertical; font-size: 14px; }
+  textarea.reason { min-height: 44px; resize: vertical; font-family: inherit; }
+  @media (max-width: 759px) {
+    textarea.manifest, textarea.scope { font-size: 16px; }
+  }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .parse-info { font-size: .84rem; color: var(--muted); margin-top: 4px; min-height: 1.4em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:hover { filter: brightness(1.06); }
+  .notice {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border: 1px solid var(--warn-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 10px 0 0;
+    font-size: .92rem;
+  }
+  .notice[hidden] { display: none; }
+  .empty { color: var(--muted); margin: 4px 0; }
+
+  /* サマリー */
+  .headline {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+    border: 2px solid var(--out-border);
+    background: var(--out-bg);
+    color: var(--out-text);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+  }
+  .headline.clean { border-color: var(--in-border); background: var(--in-bg); color: var(--in-text); }
+  .headline .big { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+  .headline .ttl { font-weight: 800; font-size: 1.05rem; }
+  .headline .sub { font-size: .9rem; flex-basis: 100%; }
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  @media (min-width: 560px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 860px) { .tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+  .tile { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  .tile .k { font-size: .8rem; color: var(--muted); }
+  .tile .v { font-size: 1.35rem; font-weight: 800; line-height: 1.2; }
+  .tile .d { font-size: .78rem; color: var(--muted); }
+
+  /* 差分グループ */
+  .group h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .group h2 .mark { font-weight: 800; }
+  .group.added h2 .mark { color: var(--add); }
+  .group.changed h2 .mark { color: var(--chg); }
+  .group.deleted h2 .mark { color: var(--del); }
+  .group h2 .cnt { font-size: .88rem; font-weight: 400; color: var(--muted); }
+  ul.files { list-style: none; margin: 0; padding: 0; }
+  ul.files li {
+    border-top: 1px solid var(--border);
+    padding: 10px 0;
+  }
+  ul.files li:first-child { border-top: 0; }
+  .row { display: flex; align-items: flex-start; gap: 10px; }
+  .path { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; word-break: break-all; font-size: .92rem; }
+  .fp { display: block; color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; word-break: break-all; }
+  .badge {
+    flex: 0 0 auto;
+    font-size: .8rem; font-weight: 800;
+    border-radius: 999px;
+    padding: 2px 10px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .badge.in { background: var(--in-bg); color: var(--in-text); border-color: var(--in-border); }
+  .badge.out { background: var(--out-bg); color: var(--out-text); border-color: var(--out-border); }
+  .reason-wrap { margin-top: 8px; }
+  .reason-wrap label { display: block; font-size: .82rem; font-weight: 700; color: var(--out-text); margin-bottom: 2px; }
+  details { margin-top: 10px; }
+  details summary { cursor: pointer; padding: 6px 0; font-weight: 700; }
+  details ul { margin: 4px 0 0; padding-left: 1.2em; }
+  details li { overflow-wrap: anywhere; word-break: break-all; font-size: .88rem; }
+
+  /* レポート */
+  .report-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .report-head h2 { margin: 0; flex: 1 1 auto; }
+  #copy-status { font-weight: 700; color: var(--in-text); min-height: 1.4em; }
+  pre#report {
+    margin: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: .82rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    max-height: 70vh;
+    overflow: auto;
+  }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>納品差分の機械照合ツール</h1>
+    <p>前回合格版と今回納品のファイル一覧を突き合わせ、追加・変更・削除をすべて洗い出して、変更範囲の内か外かを判定します。入力内容は端末の外に送信されません。</p>
+  </header>
+
+  <section class="card" aria-labelledby="h-input">
+    <h2 id="h-input">1. ファイル一覧を貼り付ける</h2>
+    <div class="inputs">
+      <div class="field">
+        <label class="lbl" for="prev">前回合格版</label>
+        <textarea id="prev" class="manifest" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off"
+          placeholder="e3b0c442…(64桁)  src/main.js&#10;assets/logo.png 48213&#10;docs/LICENSE.txt"></textarea>
+        <div class="parse-info" id="prev-info"></div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="next">今回納品</label>
+        <textarea id="next" class="manifest" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off"
+          placeholder="e3b0c442…(64桁)  src/main.js&#10;assets/logo.png 48213&#10;docs/LICENSE.txt"></textarea>
+        <div class="parse-info" id="next-info"></div>
+      </div>
+    </div>
+    <p class="hint">1 行 1 ファイル。<code>sha256sum</code> の出力、「パス サイズ(またはハッシュ)」、パスのみ、の 3 形式を混在で読めます。空行と <code>#</code> で始まる行は無視します。</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-scope">
+    <h2 id="h-scope">2. 変更範囲を定義する</h2>
+    <label class="lbl" for="scope">変更してよいパス（前方一致・1 行 1 パターン）</label>
+    <textarea id="scope" class="scope" spellcheck="false" autocapitalize="off" autocomplete="off"
+      placeholder="src/stages/&#10;assets/stages/"></textarea>
+    <p class="hint">差分のあったファイルのパスが、いずれかのパターンで始まれば「範囲内」、それ以外は「範囲外」です。大文字小文字は区別します。</p>
+    <div class="notice" id="scope-empty" role="status" hidden>変更範囲のパターンが未入力です。この状態では、差分のあったファイルをすべて「範囲外」として扱います。</div>
+    <div class="actions">
+      <button type="button" class="primary" id="btn-compare">照合する</button>
+      <button type="button" id="btn-sample">サンプルを読み込む</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-summary" aria-live="polite">
+    <h2 id="h-summary">3. 照合結果</h2>
+    <div id="summary"><p class="empty">ファイル一覧を貼り付けると、ここに結果が表示されます。</p></div>
+  </section>
+
+  <div id="groups"></div>
+
+  <section class="card" aria-labelledby="h-report">
+    <div class="report-head">
+      <h2 id="h-report">4. レビュー報告（プレーンテキスト）</h2>
+      <span id="copy-status" role="status" aria-live="polite"></span>
+      <button type="button" class="primary" id="btn-copy">レポートをコピー</button>
+    </div>
+    <p class="hint">コピーできない環境では、下の枠内を選択して手動でコピーしてください。</p>
+    <pre id="report" tabindex="0" aria-label="レビュー報告の本文"></pre>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+   * 純粋関数（DOM に依存しない。window.DeliveryDiff から単体で呼べる）
+   * ===================================================================== */
+
+  var SHA256SUM_LINE = /^[0-9a-fA-F]{64}\s+\*?\s*(.+)$/;
+  var HEX_DIGEST = /^[0-9a-fA-F]{32,}$/;
+
+  /** ハッシュらしい値は大文字小文字の違いで「変更」にならないよう小文字にそろえる。 */
+  function normalizeFingerprint(fp) {
+    return HEX_DIGEST.test(fp) ? fp.toLowerCase() : fp;
+  }
+
+  /**
+   * 1 行を解釈する。対象外の行（空行・コメント）は null。
+   * @returns {{path: string, fingerprint: (string|null)}|null}
+   */
+  function parseLine(rawLine) {
+    var line = rawLine.trim();
+    if (line === '' || line.charAt(0) === '#') return null;
+
+    var m = SHA256SUM_LINE.exec(line);
+    if (m) {
+      return { path: m[1].trim(), fingerprint: line.slice(0, 64).toLowerCase() };
+    }
+    var tokens = line.split(/\s+/);
+    if (tokens.length >= 2) {
+      var fp = tokens[tokens.length - 1];
+      // 末尾トークンを取り除いた残りを、パス内の空白を保ったままパスとする
+      var path = line.slice(0, line.length - fp.length).trim();
+      return { path: path, fingerprint: normalizeFingerprint(fp) };
+    }
+    return { path: line, fingerprint: null };
+  }
+
+  /**
+   * マニフェスト全文を解釈する。
+   * 同じパスが複数回出た場合は後の行を採用し、duplicates に記録する。
+   * @returns {{files: Map<string, (string|null)>, duplicates: string[], lineCount: number}}
+   */
+  function parseManifest(text) {
+    var files = new Map();
+    var duplicates = [];
+    var lineCount = 0;
+    String(text == null ? '' : text).split(/\r\n|\r|\n/).forEach(function (raw) {
+      var entry = parseLine(raw);
+      if (!entry) return;
+      lineCount++;
+      if (files.has(entry.path) && duplicates.indexOf(entry.path) === -1) duplicates.push(entry.path);
+      files.set(entry.path, entry.fingerprint);
+    });
+    return { files: files, duplicates: duplicates, lineCount: lineCount };
+  }
+
+  /** 範囲パターン欄を解釈する。空行は無視し、重複は 1 つにまとめる。 */
+  function parseScopePatterns(text) {
+    var out = [];
+    String(text == null ? '' : text).split(/\r\n|\r|\n/).forEach(function (raw) {
+      var p = raw.trim();
+      if (p !== '' && out.indexOf(p) === -1) out.push(p);
+    });
+    return out;
+  }
+
+  /** いずれかのパターンに前方一致すれば範囲内。パターンが 0 件なら常に範囲外。 */
+  function isInScope(path, patterns) {
+    for (var i = 0; i < patterns.length; i++) {
+      if (path.indexOf(patterns[i]) === 0) return true;
+    }
+    return false;
+  }
+
+  function byPath(a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; }
+
+  /**
+   * 2 つの path→fingerprint マップの差分を取る。
+   * @returns {{added: Array, changed: Array, deleted: Array, unchanged: string[], undetermined: string[]}}
+   */
+  function computeDiff(prevFiles, nextFiles) {
+    var added = [], changed = [], deleted = [], unchanged = [], undetermined = [];
+    nextFiles.forEach(function (nextFp, path) {
+      if (!prevFiles.has(path)) {
+        added.push({ path: path, prev: null, next: nextFp });
+        return;
+      }
+      var prevFp = prevFiles.get(path);
+      if (prevFp === null || nextFp === null) undetermined.push(path);
+      else if (prevFp === nextFp) unchanged.push(path);
+      else changed.push({ path: path, prev: prevFp, next: nextFp });
+    });
+    prevFiles.forEach(function (prevFp, path) {
+      if (!nextFiles.has(path)) deleted.push({ path: path, prev: prevFp, next: null });
+    });
+    added.sort(byPath); changed.sort(byPath); deleted.sort(byPath);
+    unchanged.sort(); undetermined.sort();
+    return { added: added, changed: changed, deleted: deleted, unchanged: unchanged, undetermined: undetermined };
+  }
+
+  var KINDS = [
+    { key: 'added', label: '追加', mark: '＋' },
+    { key: 'changed', label: '変更', mark: '～' },
+    { key: 'deleted', label: '削除', mark: '－' }
+  ];
+
+  /**
+   * 差分の各ファイルに範囲内/範囲外を付け、件数を集計する。
+   * 各グループは「範囲外を先、その中はパス順」に並べる。
+   */
+  function classifyDiff(diff, patterns) {
+    var result = { groups: {}, counts: {}, inScope: 0, outOfScope: 0, total: 0 };
+    KINDS.forEach(function (kind) {
+      var items = diff[kind.key].map(function (it) {
+        return { path: it.path, prev: it.prev, next: it.next, kind: kind.key, inScope: isInScope(it.path, patterns) };
+      });
+      items.sort(function (a, b) {
+        if (a.inScope !== b.inScope) return a.inScope ? 1 : -1;
+        return byPath(a, b);
+      });
+      var inCount = items.filter(function (it) { return it.inScope; }).length;
+      result.groups[kind.key] = items;
+      result.counts[kind.key] = { total: items.length, inScope: inCount, outOfScope: items.length - inCount };
+      result.inScope += inCount;
+      result.outOfScope += items.length - inCount;
+      result.total += items.length;
+    });
+    return result;
+  }
+
+  /** 入力 3 つから照合結果を一括で組み立てる。 */
+  function analyze(prevText, nextText, scopeText) {
+    var prev = parseManifest(prevText);
+    var next = parseManifest(nextText);
+    var patterns = parseScopePatterns(scopeText);
+    var diff = computeDiff(prev.files, next.files);
+    return {
+      prev: prev, next: next, patterns: patterns, diff: diff,
+      classified: classifyDiff(diff, patterns)
+    };
+  }
+
+  function shortFp(fp) {
+    if (fp === null) return '(なし)';
+    return fp.length > 16 ? fp.slice(0, 12) + '…' : fp;
+  }
+
+  function fingerprintNote(item) {
+    if (item.kind === 'changed') return shortFp(item.prev) + ' → ' + shortFp(item.next);
+    return '';
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function formatTimestamp(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+      ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  /**
+   * プレーンテキストのレビュー報告を作る。
+   * 先頭は必ず「範囲外の件数」と「範囲外の全リスト（理由つき）」。
+   * @param {object} a analyze() の結果
+   * @param {Map<string,string>|object} reasons パス→理由
+   * @param {Date} now
+   */
+  function buildReport(a, reasons, now) {
+    var c = a.classified;
+    var getReason = function (path) {
+      var r = reasons instanceof Map ? reasons.get(path) : (reasons || {})[path];
+      r = (r == null ? '' : String(r)).trim().replace(/\s*\n\s*/g, ' / ');
+      return r === '' ? '(理由未記入)' : r;
+    };
+    var kindLabel = {};
+    KINDS.forEach(function (k) { kindLabel[k.key] = k.label; });
+    var L = [];
+
+    L.push('【範囲外】' + c.outOfScope + ' 件（追加 ' + c.counts.added.outOfScope +
+      ' / 変更 ' + c.counts.changed.outOfScope + ' / 削除 ' + c.counts.deleted.outOfScope + '）');
+    if (c.outOfScope === 0) {
+      L.push('  範囲外の差分はありません。');
+    } else {
+      var n = 0;
+      KINDS.forEach(function (kind) {
+        c.groups[kind.key].forEach(function (it) {
+          if (it.inScope) return;
+          n++;
+          L.push('  ' + n + '. [' + kindLabel[it.kind] + '] ' + it.path);
+          L.push('     理由: ' + getReason(it.path));
+        });
+      });
+    }
+    if (a.patterns.length === 0) {
+      L.push('  ※ 変更範囲のパターンが未入力のため、差分はすべて範囲外として扱っています。');
+    }
+
+    L.push('');
+    L.push('【差分の内訳】全 ' + c.total + ' 件（範囲内 ' + c.inScope + ' / 範囲外 ' + c.outOfScope + '）');
+    KINDS.forEach(function (kind) {
+      var cnt = c.counts[kind.key];
+      L.push('■ ' + kind.label + ' ' + cnt.total + ' 件（範囲内 ' + cnt.inScope + ' / 範囲外 ' + cnt.outOfScope + '）');
+      if (cnt.total === 0) L.push('  (なし)');
+      c.groups[kind.key].forEach(function (it) {
+        var note = fingerprintNote(it);
+        L.push('  [' + (it.inScope ? '範囲内' : '範囲外') + '] ' + it.path + (note ? '  (' + note + ')' : ''));
+      });
+    });
+
+    L.push('');
+    L.push('【集計】');
+    L.push('前回合格版: ' + a.prev.files.size + ' ファイル / 今回納品: ' + a.next.files.size + ' ファイル');
+    L.push('変更なし: ' + a.diff.unchanged.length + ' 件');
+    L.push('判定不可（比較情報なし）: ' + a.diff.undetermined.length + ' 件');
+    if (a.diff.undetermined.length > 0) {
+      L.push('  ※ サイズやハッシュが片方または両方に無く、変更の有無を機械判定できません。');
+      a.diff.undetermined.forEach(function (p) {
+        L.push('  - ' + p + '  [' + (isInScope(p, a.patterns) ? '範囲内' : '範囲外') + 'のパス]');
+      });
+    }
+    var dups = [];
+    a.prev.duplicates.forEach(function (p) { dups.push('前回合格版: ' + p); });
+    a.next.duplicates.forEach(function (p) { dups.push('今回納品: ' + p); });
+    if (dups.length > 0) {
+      L.push('一覧内で重複していたパス（後の行を採用）: ' + dups.length + ' 件');
+      dups.forEach(function (d) { L.push('  - ' + d); });
+    }
+    L.push('変更範囲パターン（前方一致）: ' + (a.patterns.length === 0 ? '(未入力)' : a.patterns.length + ' 件'));
+    a.patterns.forEach(function (p) { L.push('  - ' + p); });
+    L.push('作成日時: ' + formatTimestamp(now));
+    L.push('作成: 納品差分の機械照合ツール');
+    return L.join('\n');
+  }
+
+  /* =====================================================================
+   * サンプルデータ
+   * ===================================================================== */
+
+  /** サンプル用の見た目だけの 64 桁 16 進値（実ファイルのハッシュではない）。 */
+  function sampleHash(seed) {
+    var h = 2166136261;
+    for (var i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    var out = '';
+    for (var j = 0; j < 8; j++) {
+      h ^= h << 13; h >>>= 0;
+      h ^= h >>> 17;
+      h ^= h << 5; h >>>= 0;
+      out += ('00000000' + h.toString(16)).slice(-8);
+    }
+    return out;
+  }
+
+  function buildSample() {
+    var sha = function (path, rev) { return sampleHash(path + '@' + rev) + '  ' + path; };
+    var prev = [
+      '# 前回合格版 v1.2.0（sha256sum の出力に、手書きの行が混ざった一覧）',
+      sha('index.html', 1),
+      sha('package.json', 1),
+      sha('src/main.js', 1),
+      sha('src/engine/physics.js', 1),
+      sha('src/engine/render.js', 1),
+      sha('src/stages/stage01.js', 1),
+      sha('src/stages/stage02.js', 1),
+      sha('src/stages/stage_tutorial_old.js', 1),
+      sha('src/ui/hud.js', 1),
+      sha('assets/stages/stage01_bg.png', 1),
+      sha('assets/stages/stage02_bg.png', 1),
+      sha('assets/audio/bgm_title.ogg', 1),
+      sha('docs/CHANGELOG.md', 1),
+      '',
+      '# サイズだけ控えているファイル',
+      'assets/sprites/player.png 48213',
+      'assets/sprites/enemy.png 20110',
+      '# パスだけ控えているファイル',
+      'assets/fonts/LICENSE.txt'
+    ];
+    var next = [
+      '# 今回納品 v1.3.0（依頼内容: ステージ3の追加とステージ2の調整）',
+      sha('index.html', 1),
+      sha('package.json', 2),
+      sha('src/main.js', 1),
+      sha('src/engine/physics.js', 2),
+      sha('src/engine/render.js', 1),
+      sha('src/stages/stage01.js', 1),
+      sha('src/stages/stage02.js', 2),
+      sha('src/stages/stage03.js', 1),
+      sha('src/ui/hud.js', 1),
+      sha('src/analytics/tracker.js', 1),
+      sha('vendor/ad-sdk.min.js', 1),
+      sha('assets/stages/stage01_bg.png', 1),
+      sha('assets/stages/stage02_bg.png', 2),
+      sha('assets/stages/stage03_bg.png', 1),
+      sha('docs/CHANGELOG.md', 2),
+      '',
+      'assets/sprites/player.png 48213',
+      'assets/sprites/enemy.png 20764',
+      'assets/fonts/LICENSE.txt'
+    ];
+    var scope = ['src/stages/', 'assets/stages/', 'docs/CHANGELOG.md'];
+    return { prev: prev.join('\n'), next: next.join('\n'), scope: scope.join('\n') };
+  }
+
+  /* =====================================================================
+   * 画面
+   * ===================================================================== */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    prev: $('prev'), next: $('next'), scope: $('scope'),
+    prevInfo: $('prev-info'), nextInfo: $('next-info'), scopeEmpty: $('scope-empty'),
+    summary: $('summary'), groups: $('groups'), report: $('report'),
+    copyStatus: $('copy-status')
+  };
+
+  var reasons = new Map(); // パス → 範囲外の理由（再照合しても残す）
+  var current = null;      // 直近の analyze() 結果
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === 'text') node.textContent = attrs[k];
+      else if (k === 'class') node.className = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+    return node;
+  }
+
+  function renderParseInfo(target, parsed) {
+    if (parsed.lineCount === 0) { target.textContent = ''; return; }
+    var withFp = 0;
+    parsed.files.forEach(function (fp) { if (fp !== null) withFp++; });
+    var msg = parsed.files.size + ' ファイルを読み取り（比較情報あり ' + withFp + ' / なし ' + (parsed.files.size - withFp) + '）';
+    if (parsed.duplicates.length > 0) msg += '・重複パス ' + parsed.duplicates.length + ' 件（後の行を採用）';
+    target.textContent = msg;
+  }
+
+  function tile(label, value, detail) {
+    return el('div', { class: 'tile' }, [
+      el('div', { class: 'k', text: label }),
+      el('div', { class: 'v', text: String(value) }),
+      detail ? el('div', { class: 'd', text: detail }) : null
+    ]);
+  }
+
+  function renderSummary(a) {
+    var c = a.classified;
+    els.summary.textContent = '';
+    if (a.prev.lineCount === 0 && a.next.lineCount === 0) {
+      els.summary.appendChild(el('p', { class: 'empty', text: 'ファイル一覧を貼り付けると、ここに結果が表示されます。' }));
+      return;
+    }
+    var head = el('div', { class: 'headline' + (c.outOfScope === 0 ? ' clean' : ''), id: 'out-headline' }, [
+      el('span', { class: 'ttl', text: '範囲外' }),
+      el('span', { class: 'big', id: 'out-total', text: String(c.outOfScope) }),
+      el('span', { class: 'ttl', text: '件' }),
+      el('span', { class: 'sub', text: c.outOfScope === 0
+        ? (c.total === 0 ? '差分はありません。' : '差分はすべて変更範囲の内側です。')
+        : '追加 ' + c.counts.added.outOfScope + ' / 変更 ' + c.counts.changed.outOfScope +
+          ' / 削除 ' + c.counts.deleted.outOfScope + '。それぞれ理由を記入してください。' })
+    ]);
+    els.summary.appendChild(head);
+
+    var tiles = el('div', { class: 'tiles' }, [
+      tile('差分 合計', c.total, '範囲内 ' + c.inScope + ' / 範囲外 ' + c.outOfScope),
+      tile('追加', c.counts.added.total, '範囲内 ' + c.counts.added.inScope + ' / 範囲外 ' + c.counts.added.outOfScope),
+      tile('変更', c.counts.changed.total, '範囲内 ' + c.counts.changed.inScope + ' / 範囲外 ' + c.counts.changed.outOfScope),
+      tile('削除', c.counts.deleted.total, '範囲内 ' + c.counts.deleted.inScope + ' / 範囲外 ' + c.counts.deleted.outOfScope),
+      tile('変更なし', a.diff.unchanged.length, '前回 ' + a.prev.files.size + ' / 今回 ' + a.next.files.size + ' ファイル'),
+      tile('判定不可', a.diff.undetermined.length, '比較情報なし')
+    ]);
+    els.summary.appendChild(tiles);
+
+    // テスト・支援技術向けに数値を data 属性にも持たせる
+    var ds = els.summary.dataset;
+    ds.added = c.counts.added.total; ds.changed = c.counts.changed.total; ds.deleted = c.counts.deleted.total;
+    ds.inScope = c.inScope; ds.outOfScope = c.outOfScope;
+    ds.unchanged = a.diff.unchanged.length; ds.undetermined = a.diff.undetermined.length;
+    ds.prevFiles = a.prev.files.size; ds.nextFiles = a.next.files.size;
+
+    if (a.diff.undetermined.length > 0) {
+      var det = el('details', { id: 'undetermined' }, [
+        el('summary', { text: '判定不可（比較情報なし）: ' + a.diff.undetermined.length + ' 件' }),
+        el('p', { class: 'hint', text: '両方の一覧にありますが、サイズやハッシュが片方または両方に無いため、変更の有無を機械判定できません。目視で確認するか、ハッシュ付きの一覧を取り直してください。' }),
+        el('ul', null, a.diff.undetermined.map(function (p) {
+          return el('li', { class: 'mono', text: p });
+        }))
+      ]);
+      det.open = true;
+      els.summary.appendChild(el('div', { class: 'notice' }, [det]));
+    }
+  }
+
+  function renderGroups(a) {
+    els.groups.textContent = '';
+    if (a.prev.lineCount === 0 && a.next.lineCount === 0) return;
+    var reasonSeq = 0;
+    KINDS.forEach(function (kind) {
+      var cnt = a.classified.counts[kind.key];
+      var items = a.classified.groups[kind.key];
+      var section = el('section', {
+        class: 'card group ' + kind.key, id: 'group-' + kind.key, 'aria-labelledby': 'h-' + kind.key,
+        'data-total': cnt.total, 'data-in': cnt.inScope, 'data-out': cnt.outOfScope
+      }, [
+        el('h2', { id: 'h-' + kind.key }, [
+          el('span', { class: 'mark', 'aria-hidden': 'true', text: kind.mark }),
+          el('span', { text: kind.label + ' ' + cnt.total + ' 件' }),
+          el('span', { class: 'cnt', text: '範囲内 ' + cnt.inScope + ' / 範囲外 ' + cnt.outOfScope })
+        ])
+      ]);
+      if (items.length === 0) {
+        section.appendChild(el('p', { class: 'empty', text: '該当するファイルはありません。' }));
+      } else {
+        section.appendChild(el('ul', { class: 'files' }, items.map(function (it) {
+          var note = fingerprintNote(it);
+          var li = el('li', { 'data-path': it.path, 'data-scope': it.inScope ? 'in' : 'out' }, [
+            el('div', { class: 'row' }, [
+              el('span', { class: 'path' }, [
+                document.createTextNode(it.path),
+                note ? el('span', { class: 'fp', text: note }) : null
+              ]),
+              el('span', { class: 'badge ' + (it.inScope ? 'in' : 'out'), text: it.inScope ? '範囲内' : '範囲外' })
+            ])
+          ]);
+          if (!it.inScope) {
+            var id = 'reason-' + (reasonSeq++);
+            var ta = el('textarea', { id: id, class: 'reason', rows: '1', placeholder: '例: 依頼外の変更。提出元に確認中' });
+            ta.value = reasons.get(it.path) || '';
+            ta.addEventListener('input', function () {
+              reasons.set(it.path, ta.value);
+              renderReport();
+            });
+            li.appendChild(el('div', { class: 'reason-wrap' }, [
+              el('label', { for: id }, [
+                document.createTextNode('範囲外の理由'),
+                el('span', { class: 'visually-hidden', text: '（' + it.path + '）' })
+              ]),
+              ta
+            ]));
+          }
+          return li;
+        })));
+      }
+      els.groups.appendChild(section);
+    });
+  }
+
+  function renderReport() {
+    if (!current || (current.prev.lineCount === 0 && current.next.lineCount === 0)) {
+      els.report.textContent = '（照合結果が出ると、ここに報告文が表示されます）';
+      return;
+    }
+    els.report.textContent = buildReport(current, reasons, new Date());
+  }
+
+  function compare() {
+    current = analyze(els.prev.value, els.next.value, els.scope.value);
+    renderParseInfo(els.prevInfo, current.prev);
+    renderParseInfo(els.nextInfo, current.next);
+    var hasInput = current.prev.lineCount > 0 || current.next.lineCount > 0;
+    els.scopeEmpty.hidden = !(hasInput && current.patterns.length === 0);
+    renderSummary(current);
+    renderGroups(current);
+    renderReport();
+    els.copyStatus.textContent = '';
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function showCopyResult(ok) {
+    els.copyStatus.textContent = ok ? 'コピーしました' : 'コピーできませんでした。下の枠内を選択してコピーしてください。';
+    if (!ok) {
+      var range = document.createRange();
+      range.selectNodeContents(els.report);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
+  function copyReport() {
+    renderReport(); // 作成日時を押した時点に更新
+    var text = els.report.textContent;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).then(
+        function () { showCopyResult(true); },
+        function () { showCopyResult(fallbackCopy(text)); }
+      );
+    } else {
+      showCopyResult(fallbackCopy(text));
+    }
+  }
+
+  function loadSample() {
+    var s = buildSample();
+    els.prev.value = s.prev;
+    els.next.value = s.next;
+    els.scope.value = s.scope;
+    compare();
+  }
+
+  var liveTimer = null;
+  function scheduleCompare() {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(compare, 250);
+  }
+
+  $('btn-compare').addEventListener('click', function () { clearTimeout(liveTimer); compare(); });
+  $('btn-sample').addEventListener('click', loadSample);
+  $('btn-copy').addEventListener('click', copyReport);
+  [els.prev, els.next, els.scope].forEach(function (t) { t.addEventListener('input', scheduleCompare); });
+
+  window.DeliveryDiff = {
+    parseLine: parseLine,
+    parseManifest: parseManifest,
+    parseScopePatterns: parseScopePatterns,
+    isInScope: isInScope,
+    computeDiff: computeDiff,
+    classifyDiff: classifyDiff,
+    analyze: analyze,
+    buildReport: buildReport,
+    buildSample: buildSample
+  };
+
+  compare();
+})();
+</script>
+</body>
+</html>
