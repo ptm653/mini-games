@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f4efe6">
+<title>いろぞめ</title>
+<style>
+:root{
+  --paper:#f4efe6;
+  --card:#fffaf1;
+  --ink:#2b2a33;
+  --sub:#6b6875;
+  --line:#ddd3c2;
+  --accent:#2f4b8f;
+  --c0:#2f4b8f;
+  --c1:#c8443c;
+  --c2:#e3b23c;
+  --c3:#4f9d69;
+  --c4:#8a5aa8;
+  --c5:#4fb0c6;
+  --pad:16px;
+  --gap:12px;
+  --btn-h:56px;
+  --fs-body:15px;
+  --fs-label:12px;
+  --fs-value:22px;
+  --fs-btn:17px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;overflow:hidden;overscroll-behavior:none;
+  background:var(--paper);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+  -webkit-user-select:none;user-select:none;
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;
+  touch-action:manipulation;
+}
+#app{
+  position:fixed;left:0;top:0;width:100%;height:100vh;height:100dvh;
+  overflow:hidden;
+}
+.screen{
+  position:absolute;left:0;top:0;width:100%;height:100%;
+  display:none;flex-direction:column;align-items:center;
+  padding:
+    max(var(--pad),env(safe-area-inset-top))
+    max(var(--pad),env(safe-area-inset-right))
+    max(var(--pad),env(safe-area-inset-bottom))
+    max(var(--pad),env(safe-area-inset-left));
+  gap:var(--gap);
+  overflow:hidden;
+}
+.screen.on{display:flex}
+
+/* ---------- buttons (fixed size, independent of label length) ---------- */
+.btn{
+  flex:0 0 auto;
+  width:256px;max-width:100%;height:var(--btn-h);
+  display:block;
+  padding:0 20px;
+  border:0;border-radius:14px;
+  background:var(--accent);color:#fff;
+  font:inherit;font-size:var(--fs-btn);font-weight:700;letter-spacing:.06em;
+  line-height:var(--btn-h);text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  box-shadow:0 3px 0 rgba(0,0,0,.18);
+  cursor:pointer;
+}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.btn.ghost{background:var(--card);color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.btns{flex:0 0 auto;width:100%;display:flex;flex-direction:column;align-items:center;gap:var(--gap)}
+
+/* ---------- title ---------- */
+#title,#result{justify-content:center}
+.logo{
+  flex:0 0 auto;width:96px;height:96px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  padding:8px;border-radius:18px;background:var(--card);
+  box-shadow:0 2px 0 var(--line);
+}
+.logo i{border-radius:5px}
+h1{flex:0 0 auto;font-size:36px;line-height:1.3;letter-spacing:.12em;padding:0 8px;text-align:center}
+.tag{flex:0 0 auto;font-size:var(--fs-body);line-height:1.6;color:var(--sub);padding:0 8px;text-align:center}
+.rules{
+  flex:0 0 auto;width:min(100%,340px);
+  list-style:none;
+  background:var(--card);border-radius:16px;
+  padding:14px 18px;
+  box-shadow:0 2px 0 var(--line);
+  display:flex;flex-direction:column;gap:8px;
+}
+.rules li{
+  display:flex;gap:10px;align-items:flex-start;
+  font-size:var(--fs-body);line-height:1.6;
+}
+.rules b{
+  flex:0 0 24px;height:24px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:13px;line-height:24px;text-align:center;
+}
+
+/* ---------- play ---------- */
+.hud{
+  flex:0 0 auto;width:100%;max-width:460px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+}
+.stat{
+  background:var(--card);border-radius:12px;
+  padding:8px 6px;
+  text-align:center;
+  box-shadow:0 2px 0 var(--line);
+  min-width:0;
+}
+.stat span{display:block;font-size:var(--fs-label);line-height:1.4;color:var(--sub);white-space:nowrap}
+.stat strong{display:block;font-size:var(--fs-value);line-height:1.3;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat.warn strong{color:var(--c1)}
+.boardwrap{
+  flex:1 1 0;min-height:0;width:100%;
+  display:flex;align-items:center;justify-content:center;
+}
+#board{
+  display:grid;
+  background:var(--card);
+  padding:6px;border-radius:14px;gap:2px;
+  box-shadow:0 2px 0 var(--line);
+}
+.cell{border-radius:3px;transition:background-color .18s ease}
+.cell.origin{position:relative}
+.cell.origin::after{
+  content:"";position:absolute;left:50%;top:50%;width:34%;height:34%;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:#fff;opacity:.9;
+}
+.hint{
+  flex:0 0 auto;width:100%;
+  font-size:var(--fs-label);line-height:1.6;color:var(--sub);
+  text-align:center;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#palette{
+  flex:0 0 auto;width:100%;
+  display:flex;justify-content:center;gap:6px;
+}
+.dye{
+  flex:0 0 auto;
+  width:clamp(44px,13vw,56px);height:clamp(44px,13vw,56px);
+  border:0;border-radius:50%;
+  box-shadow:0 3px 0 rgba(0,0,0,.2),inset 0 0 0 3px rgba(255,255,255,.55);
+  cursor:pointer;
+  transition:opacity .15s,transform .15s;
+}
+.dye:active{transform:translateY(2px)}
+.dye.cur{opacity:.28;transform:scale(.8);box-shadow:none}
+
+/* ---------- overlay ---------- */
+#overlay{
+  position:absolute;left:0;top:0;width:100%;height:100%;
+  display:none;align-items:center;justify-content:center;
+  padding:var(--pad);
+  background:rgba(43,42,51,.5);
+}
+#overlay.on{display:flex}
+.modal{
+  width:min(100%,320px);
+  background:var(--card);border-radius:20px;
+  padding:24px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:var(--gap);
+  text-align:center;
+}
+.modal h2{font-size:24px;line-height:1.4;letter-spacing:.06em;padding:0 4px}
+.modal p{font-size:var(--fs-body);line-height:1.6;color:var(--sub);padding:0 4px}
+
+/* ---------- result ---------- */
+.rank{
+  flex:0 0 auto;
+  font-size:var(--fs-body);line-height:1.6;font-weight:700;
+  color:#fff;background:var(--accent);
+  padding:4px 18px;border-radius:999px;letter-spacing:.1em;
+}
+.rank.lose{background:var(--sub)}
+.sheet{
+  flex:0 0 auto;width:min(100%,340px);
+  background:var(--card);border-radius:16px;
+  padding:6px 18px;
+  box-shadow:0 2px 0 var(--line);
+}
+.row{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:10px 0;
+  font-size:var(--fs-body);line-height:1.6;
+}
+.row + .row{border-top:1px solid var(--line)}
+.row span{color:var(--sub);white-space:nowrap}
+.row strong{font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ---------- compact heights ---------- */
+@media (max-height:620px){
+  :root{--pad:12px;--gap:9px;--btn-h:50px;--fs-body:14px;--fs-value:19px;--fs-btn:16px}
+  .logo{width:68px;height:68px;padding:6px;gap:3px;border-radius:14px}
+  h1{font-size:30px}
+  .rules{padding:10px 14px;gap:5px}
+  .stat{padding:5px 6px}
+  .row{padding:7px 0}
+  .modal{padding:18px 16px}
+}
+@media (max-height:500px){
+  :root{--gap:7px;--btn-h:46px;--fs-body:13px}
+  .logo{display:none}
+  h1{font-size:26px}
+  .row{padding:5px 0}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <section id="title" class="screen on">
+    <div class="logo" aria-hidden="true">
+      <i style="background:var(--c0)"></i><i style="background:var(--c0)"></i><i style="background:var(--c2)"></i>
+      <i style="background:var(--c0)"></i><i style="background:var(--c1)"></i><i style="background:var(--c3)"></i>
+      <i style="background:var(--c5)"></i><i style="background:var(--c1)"></i><i style="background:var(--c4)"></i>
+    </div>
+    <h1>いろぞめ</h1>
+    <p class="tag">布を一色に染めあげるパズル</p>
+    <ul class="rules">
+      <li><b>1</b><span>下の染料をタップすると、左上の布から色がつながって広がる</span></li>
+      <li><b>2</b><span>手数が尽きる前に、布ぜんぶを一色に染めよう</span></li>
+      <li><b>3</b><span>余った手数は「予備」として次の布へ持ちこせる。全5枚</span></li>
+    </ul>
+    <button id="btnStart" class="btn" type="button">はじめる</button>
+  </section>
+
+  <section id="play" class="screen">
+    <div class="hud">
+      <div class="stat"><span>布</span><strong id="vStage">1 / 5</strong></div>
+      <div class="stat" id="sMoves"><span>手数</span><strong id="vMoves">0</strong></div>
+      <div class="stat"><span>予備</span><strong id="vReserve">0</strong></div>
+    </div>
+    <div class="boardwrap" id="boardwrap"><div id="board"></div></div>
+    <p class="hint" id="hint">白い点の布から、色をつなげて広げよう</p>
+    <div id="palette"></div>
+    <div id="overlay">
+      <div class="modal">
+        <h2 id="oTitle"></h2>
+        <p id="oText"></p>
+        <button id="btnNext" class="btn" type="button"></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="result" class="screen">
+    <h1 id="rTitle"></h1>
+    <div class="rank" id="rRank"></div>
+    <p class="tag" id="rText"></p>
+    <div class="sheet">
+      <div class="row"><span>染めあげた布</span><strong id="rStages"></strong></div>
+      <div class="row"><span>使った手数</span><strong id="rUsed"></strong></div>
+      <div class="row"><span>のこった予備</span><strong id="rReserve"></strong></div>
+    </div>
+    <div class="btns">
+      <button id="btnRetry" class="btn" type="button">もう一度あそぶ</button>
+      <button id="btnTitle" class="btn ghost" type="button">タイトルへ</button>
+    </div>
+  </section>
+
+</div>
+<script>
+(function(){
+"use strict";
+
+var COLORS=["var(--c0)","var(--c1)","var(--c2)","var(--c3)","var(--c4)","var(--c5)"];
+var NAMES=["藍","茜","うこん","若草","紫","水色"];
+/* n: board size, c: number of dyes, slack: moves granted above the greedy solution */
+var STAGES=[
+  {n:6, c:3,slack:3},
+  {n:7, c:4,slack:2},
+  {n:8, c:4,slack:2},
+  {n:9, c:5,slack:1},
+  {n:10,c:6,slack:1}
+];
+
+var $=function(id){return document.getElementById(id)};
+var S=null; /* session state */
+
+/* ---------- puzzle logic ---------- */
+function region(g,n){
+  var col=g[0],seen=new Uint8Array(n*n),st=[0],out=[];seen[0]=1;
+  while(st.length){
+    var i=st.pop();out.push(i);
+    var x=i%n,y=(i/n)|0,nb=[];
+    if(x>0)nb.push(i-1);if(x<n-1)nb.push(i+1);if(y>0)nb.push(i-n);if(y<n-1)nb.push(i+n);
+    for(var k=0;k<nb.length;k++){var j=nb[k];if(!seen[j]&&g[j]===col){seen[j]=1;st.push(j)}}
+  }
+  return out;
+}
+function flood(g,n,col){
+  var r=region(g,n);
+  for(var i=0;i<r.length;i++)g[r[i]]=col;
+}
+function greedyMoves(src,n,c){
+  var g=src.slice(),moves=0,total=n*n;
+  while(region(g,n).length<total){
+    var best=-1,bestSize=-1;
+    for(var col=0;col<c;col++){
+      if(col===g[0])continue;
+      var t=g.slice();flood(t,n,col);
+      var sz=region(t,n).length;
+      if(sz>bestSize){bestSize=sz;best=col}
+    }
+    flood(g,n,best);moves++;
+  }
+  return moves;
+}
+function makeBoard(st){
+  var n=st.n,g;
+  do{
+    g=[];
+    for(var i=0;i<n*n;i++)g.push((Math.random()*st.c)|0);
+  }while(region(g,n).length>n*n/3);
+  return g;
+}
+
+/* ---------- screens ---------- */
+function show(id){
+  var s=document.querySelectorAll(".screen");
+  for(var i=0;i<s.length;i++)s[i].classList.toggle("on",s[i].id===id);
+  if(id==="play")fitBoard();
+}
+
+function newSession(){
+  S={stage:0,reserve:0,used:0,cleared:0,grid:null,moves:0,locked:false,win:false};
+  startStage();
+  show("play");
+}
+
+function startStage(){
+  var st=STAGES[S.stage];
+  S.grid=makeBoard(st);
+  S.moves=greedyMoves(S.grid,st.n,st.c)+st.slack;
+  S.locked=false;
+  $("overlay").classList.remove("on");
+  buildBoard();buildPalette();updateHud();
+  $("hint").textContent="白い点の布から、色をつなげて広げよう";
+}
+
+function buildBoard(){
+  var st=STAGES[S.stage],b=$("board");
+  b.innerHTML="";
+  b.style.gridTemplateColumns="repeat("+st.n+",1fr)";
+  b.style.gridTemplateRows="repeat("+st.n+",1fr)";
+  for(var i=0;i<st.n*st.n;i++){
+    var d=document.createElement("div");
+    d.className="cell"+(i===0?" origin":"");
+    d.style.backgroundColor=COLORS[S.grid[i]];
+    d.setAttribute("data-c",S.grid[i]);
+    b.appendChild(d);
+  }
+  fitBoard();
+}
+
+function fitBoard(){
+  var w=$("boardwrap"),b=$("board");
+  var size=Math.floor(Math.min(w.clientWidth,w.clientHeight,460));
+  if(size>0){b.style.width=size+"px";b.style.height=size+"px"}
+}
+
+function buildPalette(){
+  var st=STAGES[S.stage],p=$("palette");
+  p.innerHTML="";
+  for(var c=0;c<st.c;c++){
+    var bt=document.createElement("button");
+    bt.type="button";bt.className="dye";
+    bt.style.backgroundColor=COLORS[c];
+    bt.setAttribute("data-c",c);
+    bt.setAttribute("aria-label",NAMES[c]);
+    p.appendChild(bt);
+  }
+  markPalette();
+}
+function markPalette(){
+  var bs=$("palette").children;
+  for(var i=0;i<bs.length;i++)bs[i].classList.toggle("cur",i===S.grid[0]);
+}
+
+function updateHud(){
+  $("vStage").textContent=(S.stage+1)+" / "+STAGES.length;
+  $("vMoves").textContent=S.moves;
+  $("vReserve").textContent=S.reserve;
+  $("sMoves").classList.toggle("warn",S.moves<=2);
+}
+
+function paint(){
+  var cells=$("board").children;
+  for(var i=0;i<cells.length;i++){
+    if(+cells[i].getAttribute("data-c")!==S.grid[i]){
+      cells[i].style.backgroundColor=COLORS[S.grid[i]];
+      cells[i].setAttribute("data-c",S.grid[i]);
+    }
+  }
+}
+
+function pick(col){
+  if(!S||S.locked)return;
+  var st=STAGES[S.stage];
+  if(col===S.grid[0])return; /* same colour: no effect, no cost */
+  if(S.moves>0)S.moves--;else if(S.reserve>0)S.reserve--;else return;
+  S.used++;
+  flood(S.grid,st.n,col);
+  paint();markPalette();updateHud();
+
+  var done=region(S.grid,st.n).length===st.n*st.n;
+  if(done){
+    S.locked=true;S.cleared++;
+    var left=S.moves;
+    S.reserve+=left;S.moves=0;
+    if(S.stage===STAGES.length-1){
+      S.win=true;
+      openOverlay("全5枚 染めあげ！","最後の布まで見事に染まりました。","結果を見る",toResult);
+    }else{
+      openOverlay((S.stage+1)+"枚目 染めあげ！",
+        left>0?("余った手数 "+left+" を予備にまわします。"):"ちょうど使いきりました。",
+        "次の布へ",function(){S.stage++;startStage()});
+    }
+    updateHud();
+  }else if(S.moves===0&&S.reserve===0){
+    S.locked=true;S.win=false;
+    openOverlay("手数切れ…","予備も使いきってしまいました。","結果を見る",toResult);
+  }else if(S.moves===0){
+    $("hint").textContent="手数切れ。ここからは予備を使います";
+  }
+}
+
+var overlayAction=null;
+function openOverlay(title,text,label,fn){
+  $("oTitle").textContent=title;
+  $("oText").textContent=text;
+  $("btnNext").textContent=label;
+  overlayAction=fn;
+  $("overlay").classList.add("on");
+}
+
+function toResult(){
+  $("overlay").classList.remove("on");
+  var rank,text;
+  if(S.win){
+    if(S.reserve>=10){rank="染めの名人";text="無駄のない、見事な手ぎわです。"}
+    else if(S.reserve>=6){rank="腕ききの職人";text="予備をのこして染めあげました。"}
+    else{rank="一人前";text="ぎりぎりで染めきりました。"}
+  }else{
+    rank="修行中";text=(S.stage+1)+"枚目で手数が尽きました。";
+  }
+  $("rTitle").textContent=S.win?"染めあがり！":"手数切れ…";
+  $("rRank").textContent=rank;
+  $("rRank").classList.toggle("lose",!S.win);
+  $("rText").textContent=text;
+  $("rStages").textContent=S.cleared+" / "+STAGES.length+" 枚";
+  $("rUsed").textContent=S.used+" 手";
+  $("rReserve").textContent=S.reserve+" 手";
+  show("result");
+}
+
+/* ---------- input (tap only) ---------- */
+$("btnStart").addEventListener("click",newSession);
+$("btnRetry").addEventListener("click",newSession);
+$("btnTitle").addEventListener("click",function(){show("title")});
+$("btnNext").addEventListener("click",function(){var f=overlayAction;overlayAction=null;if(f)f()});
+$("palette").addEventListener("click",function(e){
+  var t=e.target;
+  if(t&&t.classList&&t.classList.contains("dye"))pick(+t.getAttribute("data-c"));
+});
+window.addEventListener("resize",fitBoard);
+window.addEventListener("orientationchange",fitBoard);
+document.addEventListener("touchmove",function(e){e.preventDefault()},{passive:false});
+document.addEventListener("gesturestart",function(e){e.preventDefault()});
+})();
+</script>
+</body>
+</html>
