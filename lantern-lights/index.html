@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>灯籠まつり — あかりパズル</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+    background:#0d1026;color:#fff4e0;
+    -webkit-user-select:none;user-select:none;touch-action:manipulation;
+    position:fixed;inset:0;
+  }
+  :root{
+    --board:min(92vw,48vh,440px);
+    --amber:#ffb238;--amber-hi:#ffe08a;--ink:#0d1026;--panel:#1a1f45;--line:#39407a;--muted:#b9bfe6;
+  }
+  @supports(height:100dvh){:root{--board:min(92vw,48dvh,440px);}}
+  .app{
+    height:100vh;height:100dvh;width:100%;max-width:480px;margin:0 auto;
+    padding:max(14px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom));
+    background:radial-gradient(120% 60% at 50% 0%,#252b63 0%,#0d1026 70%);
+    position:relative;overflow:hidden;
+  }
+  .screen{display:none;flex-direction:column;align-items:center;height:100%;width:100%;}
+  .screen.active{display:flex;}
+
+  /* ---------- shared buttons ---------- */
+  .btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:0;border-radius:14px;font-family:inherit;font-weight:700;color:var(--ink);
+    background:linear-gradient(#ffd070,#ffa726);box-shadow:0 4px 0 #b86a00;
+    cursor:pointer;flex:none;padding:6px 12px;line-height:1.25;white-space:nowrap;overflow:hidden;
+  }
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #b86a00;}
+  .btn.sub{background:linear-gradient(#3a4288,#2b3270);color:#fff4e0;box-shadow:0 4px 0 #171b45;}
+  .btn.sub:active{box-shadow:0 2px 0 #171b45;}
+  .btn[disabled]{opacity:.4;pointer-events:none;}
+  .btn-wide{width:min(100%,300px);height:60px;font-size:18px;}
+  .btn-half{width:calc(50% - 6px);height:60px;}
+  .btn-half .b1{font-size:16px;}
+  .btn-half .b2{font-size:12px;font-weight:600;opacity:.85;}
+
+  /* ---------- title ---------- */
+  #title{justify-content:space-between;text-align:center;}
+  .t-head{padding:3vh 8px 0;}
+  .t-kicker{font-size:13px;letter-spacing:.3em;color:var(--amber-hi);padding:4px 8px;}
+  .t-name{font-size:40px;font-weight:800;letter-spacing:.08em;color:#fff;text-shadow:0 0 18px rgba(255,178,56,.75);padding:6px 8px;line-height:1.2;}
+  .t-sub{font-size:14px;color:var(--muted);padding:4px 8px;}
+  .demo{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px;}
+  .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:96px;height:96px;position:relative;}
+  .mini i{border-radius:7px;background:#1b2050;border:1.5px solid var(--line);}
+  .mini i.on{background:radial-gradient(circle at 50% 40%,var(--amber-hi),var(--amber) 70%);border-color:#ffd070;box-shadow:0 0 10px rgba(255,178,56,.7);}
+  .mini i.tap{outline:2.5px solid #fff;outline-offset:1px;}
+  .arrow{font-size:22px;color:var(--amber-hi);padding:4px;}
+  .rules{width:100%;background:rgba(26,31,69,.85);border:1px solid var(--line);border-radius:16px;padding:14px 16px;text-align:left;}
+  .rules h2{font-size:14px;color:var(--amber-hi);padding:2px 4px 8px;letter-spacing:.1em;}
+  .rules li{list-style:none;font-size:14px;line-height:1.5;padding:4px 8px 4px 22px;position:relative;color:#f1ecff;}
+  .rules li::before{content:"";position:absolute;left:4px;top:11px;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .t-foot{width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 0 2vh;}
+  .t-note{font-size:12px;color:var(--muted);padding:4px 8px;}
+
+  /* ---------- play ---------- */
+  #play{justify-content:space-between;}
+  .hud{width:100%;display:flex;gap:8px;}
+  .stat{flex:1 1 0;min-width:0;background:rgba(26,31,69,.9);border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;}
+  .stat .k{font-size:12px;color:var(--muted);line-height:1.3;padding:2px 2px;}
+  .stat .v{font-size:22px;font-weight:800;line-height:1.3;padding:2px 2px;white-space:nowrap;}
+  .stat .v small{font-size:22px;font-weight:800;color:var(--muted);}
+  #vHearts{color:#ff6b81;letter-spacing:.08em;}
+  #vHearts .lost{color:#3b416f;}
+  .stat.warn{border-color:#ff6b81;}
+  .stat.warn #vMoves{color:#ff8a9b;}
+  .dots{display:flex;gap:8px;justify-content:center;padding:6px 8px;}
+  .dots i{width:26px;height:8px;border-radius:4px;background:#2a3068;}
+  .dots i.done{background:var(--amber);box-shadow:0 0 6px rgba(255,178,56,.7);}
+  .dots i.cur{background:#fff;}
+  .goal{font-size:14px;color:#f1ecff;text-align:center;padding:4px 10px;line-height:1.4;min-height:28px;}
+  .goal b{color:var(--amber-hi);}
+  .board-wrap{flex:none;width:var(--board);height:var(--board);padding:8px;background:#141838;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.45) inset;}
+  .board{width:100%;height:100%;display:grid;gap:6px;}
+  .cell{
+    border:2px solid #2b3270;border-radius:12px;background:#191e4a;position:relative;cursor:pointer;
+    transition:background .18s,box-shadow .18s,border-color .18s,transform .12s;
+  }
+  .cell::after{content:"";position:absolute;inset:26%;border-radius:50%;background:#232960;transition:background .18s,box-shadow .18s;}
+  .cell.on{background:radial-gradient(circle at 50% 38%,#ffe9a8,var(--amber) 62%,#e98a12);border-color:#ffe08a;box-shadow:0 0 14px rgba(255,178,56,.65);}
+  .cell.on::after{background:#fffbe6;box-shadow:0 0 12px 4px rgba(255,251,230,.9);}
+  .cell.pop{transform:scale(.9);}
+  .cell.hint{border-color:#7df9ff;box-shadow:0 0 0 3px #7df9ff,0 0 16px #7df9ff;}
+  .msg{font-size:13px;color:var(--muted);text-align:center;padding:4px 10px;line-height:1.4;min-height:26px;}
+  .actions{width:100%;display:flex;justify-content:space-between;gap:12px;padding:0 0 6px;}
+
+  /* ---------- modal ---------- */
+  .modal{position:absolute;inset:0;background:rgba(6,8,22,.78);display:none;align-items:center;justify-content:center;padding:24px;z-index:5;}
+  .modal.active{display:flex;}
+  .sheet{width:100%;max-width:320px;background:#1d2250;border:1px solid #4a52a0;border-radius:20px;padding:24px 20px 22px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6);}
+  .sheet h3{font-size:24px;font-weight:800;color:var(--amber-hi);padding:2px 8px;line-height:1.3;}
+  .sheet p{font-size:14px;color:#f1ecff;line-height:1.6;padding:2px 8px 8px;min-height:56px;}
+  .sheet.bad h3{color:#ff8a9b;}
+
+  /* ---------- result ---------- */
+  #result{justify-content:space-between;text-align:center;}
+  .r-head{padding:4vh 8px 0;}
+  .r-kicker{font-size:13px;letter-spacing:.3em;color:var(--muted);padding:4px 8px;}
+  .r-title{font-size:36px;font-weight:800;padding:6px 8px;line-height:1.25;color:#fff;text-shadow:0 0 18px rgba(255,178,56,.75);}
+  #result.lose .r-title{color:#c9cdee;text-shadow:none;}
+  .r-sub{font-size:14px;color:var(--muted);padding:4px 12px;line-height:1.5;}
+  .rank{width:120px;height:120px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 38%,#ffe9a8,var(--amber) 62%,#e98a12);color:var(--ink);box-shadow:0 0 34px rgba(255,178,56,.7);}
+  #result.lose .rank{background:#232960;color:#c9cdee;box-shadow:none;border:2px solid var(--line);}
+  .rank .rk{font-size:12px;font-weight:700;letter-spacing:.2em;padding:2px 4px;}
+  .rank .rv{font-size:52px;font-weight:800;line-height:1.2;padding:2px 4px;}
+  .table{width:100%;background:rgba(26,31,69,.9);border:1px solid var(--line);border-radius:16px;padding:6px 16px;}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-bottom:1px solid #2b3270;font-size:15px;}
+  .row:last-child{border-bottom:0;}
+  .row span{color:var(--muted);}
+  .row b{font-size:15px;color:#fff;}
+  .r-foot{width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;padding:0 0 2vh;}
+
+  @media (max-height:700px){
+    .t-name{font-size:32px;} .r-title{font-size:30px;}
+    .mini{width:78px;height:78px;} .rank{width:96px;height:96px;} .rank .rv{font-size:40px;}
+    .btn-wide,.btn-half{height:52px;}
+    .rules li{font-size:13px;padding-top:2px;padding-bottom:2px;}
+    .row{padding:7px 2px;}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- TITLE -->
+  <section class="screen active" id="title">
+    <div class="t-head">
+      <div class="t-kicker">あかりパズル</div>
+      <h1 class="t-name">灯籠まつり</h1>
+      <div class="t-sub">ぜんぶの灯籠に火をともそう</div>
+    </div>
+    <div class="demo" aria-hidden="true">
+      <div class="mini" id="demoA"></div>
+      <div class="arrow">▶</div>
+      <div class="mini" id="demoB"></div>
+    </div>
+    <div class="rules">
+      <h2>あそびかた</h2>
+      <ul>
+        <li>灯籠をタップすると、その灯籠と上下左右の明かりが切りかわる</li>
+        <li>決められた手数のうちに、ぜんぶ点灯させればステージクリア</li>
+        <li>手数が尽きるとハートを1つ失う。ハートが0で終了</li>
+        <li>全6ステージ。盤面はだんだん広く、むずかしくなる</li>
+      </ul>
+    </div>
+    <div class="t-foot">
+      <button class="btn btn-wide" id="btnStart">はじめる</button>
+      <div class="t-note">タップだけで遊べます ・ 1回 3〜5分</div>
+    </div>
+  </section>
+
+  <!-- PLAY -->
+  <section class="screen" id="play">
+    <div style="width:100%">
+      <div class="hud">
+        <div class="stat"><div class="k">ステージ</div><div class="v"><span id="vStage">1</span><small>/6</small></div></div>
+        <div class="stat" id="statMoves"><div class="k">のこり手数</div><div class="v" id="vMoves">0</div></div>
+        <div class="stat"><div class="k">ハート</div><div class="v" id="vHearts"></div></div>
+      </div>
+      <div class="dots" id="dots"></div>
+    </div>
+    <div class="goal" id="goal"></div>
+    <div class="board-wrap"><div class="board" id="board"></div></div>
+    <div class="msg" id="msg"></div>
+    <div class="actions">
+      <button class="btn btn-half sub" id="btnHint"><span class="b1">ヒント</span><span class="b2" id="hintSub">のこり 3回</span></button>
+      <button class="btn btn-half sub" id="btnReset"><span class="b1">やりなおし</span><span class="b2">ハートを1つ使う</span></button>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="result">
+    <div class="r-head">
+      <div class="r-kicker" id="rKicker">RESULT</div>
+      <h1 class="r-title" id="rTitle"></h1>
+      <div class="r-sub" id="rSub"></div>
+    </div>
+    <div class="rank"><div class="rk">評価</div><div class="rv" id="rRank">S</div></div>
+    <div class="table">
+      <div class="row"><span>クリアしたステージ</span><b id="rStages"></b></div>
+      <div class="row"><span>タップした回数</span><b id="rTaps"></b></div>
+      <div class="row"><span>のこりハート</span><b id="rHearts"></b></div>
+      <div class="row"><span>使ったヒント</span><b id="rHints"></b></div>
+    </div>
+    <div class="r-foot">
+      <button class="btn btn-wide" id="btnRetry">もう一度あそぶ</button>
+      <button class="btn btn-wide sub" id="btnTitle">タイトルへ</button>
+    </div>
+  </section>
+
+  <!-- MODAL -->
+  <div class="modal" id="modal">
+    <div class="sheet" id="sheet">
+      <h3 id="mTitle"></h3>
+      <p id="mText"></p>
+      <button class="btn btn-wide" id="mBtn"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  // n: 盤の一辺 / k: 消灯を作るタップ数(=想定最短手) / slack: 余裕の手数
+  var STAGES=[
+    {n:3,k:2,slack:2},
+    {n:4,k:3,slack:3},
+    {n:4,k:4,slack:3},
+    {n:5,k:4,slack:4},
+    {n:5,k:5,slack:4},
+    {n:5,k:6,slack:4}
+  ];
+  var MAX_HEARTS=3, MAX_HINTS=3;
+  var $=function(id){return document.getElementById(id);};
+  var S=null;          // session state
+  var modalAction=null;
+
+  function show(id){
+    ['title','play','result'].forEach(function(s){$(s).classList.toggle('active',s===id);});
+  }
+  function openModal(title,text,btn,bad,action){
+    $('mTitle').textContent=title;$('mText').textContent=text;$('mBtn').textContent=btn;
+    $('sheet').classList.toggle('bad',!!bad);modalAction=action;$('modal').classList.add('active');
+  }
+  function closeModal(){$('modal').classList.remove('active');}
+
+  function neighbors(i,n){
+    var r=Math.floor(i/n),c=i%n,a=[i];
+    if(r>0)a.push(i-n);if(r<n-1)a.push(i+n);if(c>0)a.push(i-1);if(c<n-1)a.push(i+1);
+    return a;
+  }
+  function toggle(grid,i,n){neighbors(i,n).forEach(function(j){grid[j]=!grid[j];});}
+
+  function makePuzzle(st){
+    var n=st.n,total=n*n,grid,picks,tries=0;
+    do{
+      grid=[];for(var i=0;i<total;i++)grid.push(true);
+      var pool=[];for(i=0;i<total;i++)pool.push(i);
+      picks=[];
+      for(i=0;i<st.k;i++){picks.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);}
+      picks.forEach(function(p){toggle(grid,p,n);});
+      tries++;
+      // 消灯が少なすぎる(打ち消し合った)盤面は作り直す
+    }while(grid.filter(function(x){return !x;}).length<Math.min(st.k+1,4)&&tries<50);
+    return {start:grid.slice(),picks:picks.slice()};
+  }
+
+  function newSession(){
+    S={stage:0,hearts:MAX_HEARTS,hints:MAX_HINTS,taps:0,cleared:0,busy:false};
+    loadStage(true);
+    show('play');
+  }
+  function loadStage(fresh){
+    var st=STAGES[S.stage];
+    if(fresh)S.puz=makePuzzle(st);
+    S.grid=S.puz.start.slice();
+    S.sol={};S.puz.picks.forEach(function(p){S.sol[p]=true;});
+    S.moves=st.k+st.slack;
+    S.hintCell=-1;
+    buildBoard();render();
+    setMsg('タップした灯籠と、その上下左右が切りかわります');
+  }
+  function buildBoard(){
+    var n=STAGES[S.stage].n,b=$('board');
+    b.innerHTML='';
+    b.style.gridTemplateColumns='repeat('+n+',1fr)';
+    b.style.gridTemplateRows='repeat('+n+',1fr)';
+    b.style.gap=(n>=5?5:7)+'px';
+    for(var i=0;i<n*n;i++){
+      var d=document.createElement('div');
+      d.className='cell';d.dataset.i=i;
+      b.appendChild(d);
+    }
+  }
+  function setMsg(t){$('msg').textContent=t;}
+  function render(){
+    var st=STAGES[S.stage],cells=$('board').children,off=0;
+    for(var i=0;i<cells.length;i++){
+      cells[i].classList.toggle('on',S.grid[i]);
+      cells[i].classList.toggle('hint',i===S.hintCell);
+      if(!S.grid[i])off++;
+    }
+    $('vStage').textContent=S.stage+1;
+    $('vMoves').textContent=S.moves;
+    $('statMoves').classList.toggle('warn',S.moves<=2);
+    var h='';for(i=0;i<MAX_HEARTS;i++)h+=(i<S.hearts?'<span>♥</span>':'<span class="lost">♥</span>');
+    $('vHearts').innerHTML=h;
+    var d='';for(i=0;i<STAGES.length;i++)d+='<i class="'+(i<S.stage?'done':(i===S.stage?'cur':''))+'"></i>';
+    $('dots').innerHTML=d;
+    $('goal').innerHTML=st.n+'×'+st.n+' の盤面 ・ 消えている灯籠 <b>'+off+'</b> 個';
+    $('hintSub').textContent='のこり '+S.hints+'回';
+    $('btnHint').disabled=S.hints<=0;
+    $('btnReset').disabled=S.hearts<=1;
+  }
+  function solved(){return S.grid.every(function(x){return x;});}
+
+  function tapCell(i){
+    if(!S||S.busy||$('modal').classList.contains('active'))return;
+    var st=STAGES[S.stage];
+    toggle(S.grid,i,st.n);
+    if(S.sol[i])delete S.sol[i];else S.sol[i]=true;
+    S.moves--;S.taps++;S.hintCell=-1;
+    var cells=$('board').children;
+    neighbors(i,st.n).forEach(function(j){
+      var c=cells[j];c.classList.add('pop');
+      setTimeout(function(){c.classList.remove('pop');},120);
+    });
+    render();
+    if(solved()){
+      S.cleared=S.stage+1;
+      if(S.stage===STAGES.length-1){finish(true);return;}
+      var used=st.k+st.slack-S.moves;
+      openModal('ステージ '+(S.stage+1)+' クリア',
+        used+'手でぜんぶ点灯！ 次は '+STAGES[S.stage+1].n+'×'+STAGES[S.stage+1].n+' の盤面です。',
+        '次のステージへ',false,function(){S.stage++;loadStage(true);});
+    }else if(S.moves<=0){
+      loseHeart('手数切れ…');
+    }else{
+      setMsg(S.moves<=2?'手数がのこりわずか。よく考えて！':'消えている灯籠の並びから、押す場所を推理しよう');
+    }
+  }
+  function loseHeart(title){
+    S.hearts--;render();
+    if(S.hearts<=0){finish(false);return;}
+    openModal(title,'ハートを1つ失いました（のこり '+S.hearts+'）。同じ盤面を最初からやりなおします。',
+      'もう一度',true,function(){loadStage(false);});
+  }
+  function useHint(){
+    if(!S||S.hints<=0)return;
+    var keys=Object.keys(S.sol);
+    if(!keys.length)return;
+    S.hints--;S.hintCell=+keys[0];
+    render();
+    setMsg('光っている枠の灯籠は、押すべき場所のひとつです');
+  }
+  function useReset(){
+    if(!S||S.hearts<=1)return;
+    S.hearts--;loadStage(false);
+    setMsg('ハートを1つ使って、盤面を最初に戻しました');
+  }
+  function finish(win){
+    var rank;
+    if(!win)rank=S.cleared>=4?'C':'D';
+    else if(S.hearts===MAX_HEARTS&&S.hints===MAX_HINTS)rank='S';
+    else if(S.hearts>=2)rank='A';
+    else rank='B';
+    $('result').classList.toggle('lose',!win);
+    $('rKicker').textContent=win?'CLEAR':'GAME OVER';
+    $('rTitle').textContent=win?'まつり大成功！':'灯が消えた…';
+    $('rSub').textContent=win?'6つの盤面すべてに明かりがともりました。':'ステージ '+(S.stage+1)+' でハートが尽きました。もう一度挑戦しよう。';
+    $('rRank').textContent=rank;
+    $('rStages').textContent=S.cleared+' / '+STAGES.length;
+    $('rTaps').textContent=S.taps+' 回';
+    $('rHearts').textContent=S.hearts+' / '+MAX_HEARTS;
+    $('rHints').textContent=(MAX_HINTS-S.hints)+' / '+MAX_HINTS;
+    closeModal();show('result');
+  }
+
+  // title demo
+  function mini(el,on,tap){
+    var h='';for(var i=0;i<9;i++)h+='<i class="'+(on.indexOf(i)>=0?'on':'')+(i===tap?' tap':'')+'"></i>';
+    el.innerHTML=h;
+  }
+  mini($('demoA'),[0,2,6,8],4);
+  mini($('demoB'),[0,1,2,3,4,5,6,7,8],-1);
+
+  $('btnStart').addEventListener('click',newSession);
+  $('btnRetry').addEventListener('click',newSession);
+  $('btnTitle').addEventListener('click',function(){S=null;show('title');});
+  $('btnHint').addEventListener('click',useHint);
+  $('btnReset').addEventListener('click',useReset);
+  $('mBtn').addEventListener('click',function(){var a=modalAction;modalAction=null;closeModal();if(a)a();});
+  $('board').addEventListener('click',function(e){
+    var c=e.target.closest('.cell');if(c)tapCell(+c.dataset.i);
+  });
+  document.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
+  document.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+  // 自動テスト用の読み取り専用フック
+  window.__lantern={
+    state:function(){return S?{stage:S.stage,moves:S.moves,hearts:S.hearts,hints:S.hints,taps:S.taps,n:STAGES[S.stage].n,grid:S.grid.slice(),solution:Object.keys(S.sol).map(Number)}:null;}
+  };
+})();
+</script>
+</body>
+</html>
