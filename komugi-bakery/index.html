@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffe9c9">
+<title>こむぎ堂ものがたり — KOMUGI BAKERY</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;}
+  :root{
+    --ink:#4a2f1b; --sub:#8a6a4f; --crust:#e8813a; --crust-d:#b85a1c; --butter:#ffd978;
+    --leaf:#4f9d69; --berry:#d4544c; --sky:#5b9bd5;
+    --panel:rgba(255,255,255,.74); --panel2:rgba(255,246,228,.92);
+    --line:rgba(122,82,48,.16); --shadow:0 2px 0 rgba(122,82,48,.10),0 6px 16px rgba(122,82,48,.10);
+    --gap:8px; --r:14px;
+  }
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+    color:var(--ink);background:#ffe9c9;user-select:none;-webkit-user-select:none;}
+  #app{position:fixed;inset:0;height:100dvh;overflow:hidden;overscroll-behavior:none;display:flex;flex-direction:column;
+    background:
+      radial-gradient(120% 60% at 50% -10%,#fff8e6 0%,rgba(255,248,230,0) 70%),
+      linear-gradient(180deg,#ffe2b8 0%,#ffd1a1 45%,#f7b98a 100%);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+  .screen{flex:1;min-height:0;display:none;flex-direction:column;}
+  .screen.on{display:flex;}
+  button{font-family:inherit;color:inherit;appearance:none;-webkit-appearance:none;border:none;cursor:pointer;}
+
+  /* ---------- shared ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);}
+  .cta{flex:0 0 auto;width:100%;height:58px;border-radius:16px;font-size:18px;font-weight:800;letter-spacing:.04em;color:#fff;
+    padding:0 16px;display:flex;align-items:center;justify-content:center;white-space:nowrap;
+    background:linear-gradient(180deg,#f59a52,#e8813a);box-shadow:0 5px 0 var(--crust-d),0 9px 18px rgba(184,90,28,.28);
+    transition:transform .06s,box-shadow .06s,filter .15s;}
+  .cta:active{transform:translateY(4px);box-shadow:0 1px 0 var(--crust-d),0 3px 8px rgba(184,90,28,.28);}
+  .cta[disabled]{background:linear-gradient(180deg,#e2cdb6,#d3bba2);box-shadow:0 5px 0 #b59d85;color:#fff8ee;}
+  .cta.warn{background:linear-gradient(180deg,#e2726a,#d4544c);box-shadow:0 5px 0 #a23a33,0 9px 18px rgba(162,58,51,.28);}
+  .cta.ghost{background:linear-gradient(180deg,#fffaf0,#ffeccc);color:var(--crust-d);box-shadow:0 5px 0 #dcb98c,0 9px 18px rgba(184,90,28,.16);}
+  .cta.ghost:active{box-shadow:0 1px 0 #dcb98c;}
+
+  /* ---------- title ---------- */
+  #title{align-items:center;justify-content:center;padding:24px 22px;gap:16px;text-align:center;}
+  .t-art{font-size:64px;line-height:1.3;filter:drop-shadow(0 6px 8px rgba(122,82,48,.25));animation:bob 2.6s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .t-en{font-size:12px;font-weight:800;letter-spacing:.38em;padding-left:.38em;color:var(--crust-d);}
+  .t-logo{font-size:34px;font-weight:900;letter-spacing:.04em;line-height:1.25;padding:0 8px;text-shadow:0 2px 0 #fff6e2;}
+  .t-lead{font-size:14px;line-height:1.75;color:var(--sub);padding:0 8px;}
+  .t-row{font-size:22px;line-height:1.3;letter-spacing:.2em;padding:0 8px 0 calc(8px + .2em);opacity:.9;}
+  .howto{width:100%;max-width:330px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;text-align:left;}
+  .howto .h{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.6;}
+  .howto .h i{font-style:normal;flex:0 0 24px;font-size:18px;line-height:1.2;text-align:center;}
+  .howto b{color:var(--crust-d);}
+  #title .cta{max-width:330px;}
+  .t-foot{font-size:12px;color:var(--sub);padding:0 8px;}
+
+  /* ---------- play ---------- */
+  #play{padding:10px 12px 12px;gap:var(--gap);position:relative;}
+  .head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 4px;height:30px;}
+  .head .shop{font-size:15px;font-weight:800;white-space:nowrap;}
+  .head .shop small{font-size:11px;font-weight:700;color:var(--sub);margin-left:10px;}
+  .head .day{font-size:13px;font-weight:800;color:#fff;background:var(--ink);border-radius:999px;padding:5px 14px;white-space:nowrap;}
+  .dots{flex:0 0 auto;display:grid;grid-template-columns:repeat(12,1fr);gap:4px;padding:0 4px;height:6px;}
+  .dots i{border-radius:3px;background:rgba(122,82,48,.16);}
+  .dots i.past{background:var(--crust);} .dots i.now{background:var(--ink);}
+
+  .stats{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap);}
+  .stat{position:relative;height:60px;padding:7px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
+  .stat .l{font-size:11px;font-weight:700;color:var(--sub);white-space:nowrap;line-height:1.2;}
+  .stat .v{font-size:20px;font-weight:900;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .stat .v small{font-size:11px;font-weight:800;color:var(--sub);margin-left:1px;}
+  .stat.bump .v{animation:bump .3s;}
+  @keyframes bump{40%{transform:scale(1.22)}}
+  .delta{position:absolute;left:0;right:0;top:-4px;text-align:center;font-size:13px;font-weight:900;pointer-events:none;
+    animation:floatup .9s ease-out forwards;text-shadow:0 1px 0 #fff,0 0 6px #fff;}
+  .delta.up{color:var(--leaf);} .delta.down{color:var(--berry);}
+  @keyframes floatup{0%{opacity:0;transform:translateY(10px)}20%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+
+  .goal{flex:0 0 auto;height:34px;padding:0 12px;display:flex;align-items:center;gap:10px;}
+  .goal .gl{font-size:11px;font-weight:800;color:var(--sub);white-space:nowrap;}
+  .goal .bar{flex:1;height:12px;border-radius:999px;background:rgba(122,82,48,.14);overflow:hidden;}
+  .goal .bar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#ffc94d,#f59a52);transition:width .45s;}
+  .goal .bar i.done{background:linear-gradient(90deg,#7cc98f,#4f9d69);}
+  .goal .gv{font-size:11px;font-weight:800;white-space:nowrap;min-width:52px;text-align:right;font-variant-numeric:tabular-nums;}
+
+  .fore{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--gap);}
+  .fc{height:76px;padding:8px 12px;display:flex;align-items:center;gap:8px;overflow:hidden;}
+  .fc .em{font-size:30px;line-height:1.25;flex:0 0 38px;text-align:center;}
+  .fc .tx{min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .fc .k{font-size:11px;font-weight:800;color:var(--sub);line-height:1.2;}
+  .fc .n{font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;}
+  .fc .e{font-size:11px;font-weight:700;color:var(--crust-d);line-height:1.2;white-space:nowrap;}
+  .fc .e.none{color:var(--sub);font-weight:600;}
+  .fc.dim{background:rgba(255,255,255,.5);}
+
+  .event{flex:0 0 auto;height:58px;padding:8px 14px;display:flex;align-items:center;gap:12px;background:var(--panel2);}
+  .event .em{font-size:26px;line-height:1.25;flex:0 0 32px;text-align:center;}
+  .event .tx{min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .event .n{font-size:13px;font-weight:800;line-height:1.25;}
+  .event .d{font-size:12px;color:var(--sub);line-height:1.25;white-space:nowrap;}
+
+  .shelf{flex:1 1 0;min-height:0;padding:10px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+  .shelf .row{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .shelf .cap{font-size:12px;font-weight:800;white-space:nowrap;}
+  .shelf .cap b{font-size:12px;color:var(--crust-d);}
+  .pill{flex:0 0 132px;width:132px;height:24px;border-radius:999px;font-size:11px;font-weight:800;color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:0 8px;white-space:nowrap;background:var(--sub);}
+  .pill.ok{background:var(--leaf);} .pill.low{background:var(--berry);} .pill.over{background:var(--sky);} .pill.none{background:#b9a48f;}
+  .rack{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:1fr 1fr;gap:3px;
+    padding:6px 8px;border-radius:10px;background:linear-gradient(180deg,rgba(214,160,104,.28),rgba(214,160,104,.14));
+    border:1px solid rgba(122,82,48,.14);}
+  .rack span{display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;min-height:0;overflow:hidden;transition:opacity .2s;}
+  .rack.cust{background:linear-gradient(180deg,rgba(91,155,213,.16),rgba(91,155,213,.07));border-color:rgba(91,155,213,.2);}
+  .rack.cust span.wait{opacity:.38;}
+  .rack span.empty::before{content:"";width:5px;height:5px;border-radius:50%;background:rgba(122,82,48,.18);}
+  .rack span.pop{animation:pop .28s;}
+  @keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+  .lv{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;}
+  .lv div{height:26px;border-radius:8px;background:rgba(122,82,48,.08);font-size:11px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;padding:0 6px;white-space:nowrap;}
+  .lv b{color:var(--crust-d);margin:0 3px;}
+
+  .plan{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap);}
+  .slot,.undo{height:46px;border-radius:12px;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;
+    gap:4px;padding:0 6px;white-space:nowrap;overflow:hidden;}
+  .slot{border:2px dashed rgba(122,82,48,.28);color:rgba(122,82,48,.45);background:rgba(255,255,255,.3);}
+  .slot.next{border-color:var(--crust);color:var(--crust-d);background:rgba(255,255,255,.6);}
+  .slot.set{border:2px solid var(--crust);background:#fff7e8;color:var(--ink);animation:slotin .22s;}
+  @keyframes slotin{from{transform:scale(.85);opacity:.3}}
+  .undo{background:#fff;border:1px solid var(--line);box-shadow:0 3px 0 rgba(122,82,48,.22);color:var(--ink);transition:transform .06s,box-shadow .06s;}
+  .undo:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(122,82,48,.22);}
+  .undo[disabled]{opacity:.4;}
+
+  .acts{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap);}
+  .act{height:66px;border-radius:14px;background:linear-gradient(180deg,#fffdf7,#fff1d6);border:1px solid var(--line);
+    box-shadow:0 4px 0 #dcb98c,0 6px 12px rgba(122,82,48,.12);padding:6px 4px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:5px;transition:transform .06s,box-shadow .06s,opacity .15s;overflow:hidden;}
+  .act:active{transform:translateY(3px);box-shadow:0 1px 0 #dcb98c;}
+  .act .n{font-size:13px;font-weight:800;line-height:1.15;white-space:nowrap;}
+  .act .c{font-size:11px;font-weight:700;color:var(--sub);line-height:1.15;white-space:nowrap;}
+  .act[disabled]{opacity:.42;box-shadow:0 4px 0 #dcc9b0;}
+
+  /* ---------- day report (modal) ---------- */
+  .veil{position:absolute;inset:0;background:rgba(74,47,27,.46);display:none;align-items:center;justify-content:center;padding:20px;z-index:5;}
+  .veil.on{display:flex;animation:fade .2s;}
+  @keyframes fade{from{opacity:0}}
+  .report{width:100%;max-width:340px;background:#fffaf0;border-radius:20px;padding:20px 20px 18px;display:flex;flex-direction:column;gap:12px;
+    box-shadow:0 14px 40px rgba(40,20,5,.35);animation:rise .28s cubic-bezier(.2,1.2,.4,1);}
+  @keyframes rise{from{transform:translateY(24px) scale(.96);opacity:0}}
+  .report h3{font-size:17px;font-weight:900;text-align:center;line-height:1.3;padding:0 8px;}
+  .queue{height:34px;border-radius:10px;background:rgba(122,82,48,.08);display:flex;align-items:center;justify-content:center;
+    font-size:17px;letter-spacing:2px;padding:0 10px 0 12px;white-space:nowrap;overflow:hidden;}
+  .rows{display:flex;flex-direction:column;}
+  .rw{height:34px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 6px;
+    border-bottom:1px dashed rgba(122,82,48,.18);font-size:14px;opacity:0;animation:rowin .3s forwards;}
+  .rw:last-child{border-bottom:none;}
+  .rw span{white-space:nowrap;}
+  .rw b{font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .rw b.up{color:var(--leaf);} .rw b.down{color:var(--berry);}
+  @keyframes rowin{from{opacity:0;transform:translateX(-8px)}to{opacity:1}}
+  .say{min-height:44px;border-radius:10px;background:#fff1d6;font-size:13px;font-weight:700;line-height:1.45;
+    display:flex;align-items:center;justify-content:center;text-align:center;padding:6px 12px;}
+
+  /* ---------- result ---------- */
+  #result{align-items:center;justify-content:center;padding:22px 20px;gap:14px;text-align:center;}
+  .r-art{font-size:58px;line-height:1.3;filter:drop-shadow(0 6px 8px rgba(122,82,48,.25));}
+  .r-head{font-size:26px;font-weight:900;line-height:1.3;padding:0 8px;}
+  .r-sub{font-size:13px;color:var(--sub);line-height:1.6;padding:0 8px;height:44px;display:flex;align-items:center;justify-content:center;}
+  .r-rank{display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:999px;background:var(--ink);color:#fff;}
+  .r-rank .rk{font-size:22px;font-weight:900;color:var(--butter);line-height:1.2;}
+  .r-rank .sc{font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .r-grid{width:100%;max-width:340px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+  .r-grid .stat{height:62px;}
+  .chart{width:100%;max-width:340px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:8px;}
+  .chart .ct{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:800;color:var(--sub);}
+  .chart .plot{position:relative;height:74px;display:grid;grid-template-columns:repeat(12,1fr);gap:5px;align-items:end;}
+  .chart .plot i{display:block;border-radius:4px 4px 1px 1px;background:linear-gradient(180deg,#ffc94d,#f59a52);min-height:2px;}
+  .chart .plot i.hit{background:linear-gradient(180deg,#8fd6a1,#4f9d69);}
+  .chart .plot i.nil{background:rgba(122,82,48,.14);}
+  .chart .plot u{position:absolute;left:0;right:0;border-top:2px dashed rgba(74,47,27,.45);height:0;}
+  .r-btns{width:100%;max-width:340px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;}
+  .r-btns .cta{font-size:16px;}
+
+  /* ---------- compact layouts (short / narrow phones) ---------- */
+  @media (max-height:740px){
+    #play{padding-top:8px;padding-bottom:10px;--gap:6px;}
+    .event,.lv{display:none;}
+    .fc{height:64px;padding:6px 10px;} .fc .tx{gap:2px;} .fc .em{font-size:26px;flex-basis:32px;}
+    .stat{height:54px;} .act{height:60px;} .cta{height:52px;}
+    .shelf{padding:8px 10px;gap:6px;} .rack{padding:3px 6px;} .rack span{font-size:15px;}
+    .howto{padding:12px 16px;gap:7px;} .t-logo{font-size:30px;}
+    .r-grid .stat{height:54px;} .chart .plot{height:56px;}
+    .report{padding:16px 18px 14px;gap:9px;} .rw{height:30px;}
+    #title,#result{gap:10px;padding:14px 20px;} .t-art,.r-art{font-size:46px;} .t-row{display:none;}
+  }
+  @media (max-height:610px){
+    .rack.cust{display:none;} .goal{height:28px;} .head{height:26px;} .slot,.undo{height:44px;} .act{height:56px;}
+    .t-lead,.t-foot{display:none;} .r-sub{display:none;}
+    #result{gap:7px;padding:10px 16px;} .r-art{font-size:32px;} .r-head{font-size:22px;} .r-rank{padding:7px 18px;}
+  }
+  @media (max-width:350px){
+    .fc .n{font-size:12px;} .fc .em{font-size:22px;flex-basis:26px;} .act .n{font-size:11px;} .act .c{font-size:10px;}
+    .slot,.undo{font-size:10px;gap:2px;padding:0 3px;} .head .shop small{display:none;}
+    .head .day{font-size:12px;padding:4px 10px;line-height:1.3;} .queue{font-size:14px;letter-spacing:0;padding:0 8px;} .report{padding:14px 14px 12px;} .rack span{font-size:13px;} .stat .l{font-size:10px;} .pill{flex-basis:112px;width:112px;}
+    .t-logo{font-size:26px;} .howto .h{font-size:12px;} .lv div{font-size:10px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE -->
+  <section id="title" class="screen on">
+    <div class="t-art">🥐</div>
+    <div class="t-en">KOMUGI BAKERY</div>
+    <div class="t-logo">こむぎ堂ものがたり</div>
+    <div class="t-lead">小さなパン屋を 12日間で<br>町いちばんの人気店に育てよう。</div>
+    <div class="t-row">🍞 🥖 🥯 🥨 🧁</div>
+    <div class="panel howto">
+      <div class="h"><i>👆</i><span>毎日 <b>3つ</b> の仕事をえらんで <b>開店</b>！</span></div>
+      <div class="h"><i>🍞</i><span>売れたパンの数だけ <b>評判</b> アップ。<br>品切れで帰すと 評判ダウン。</span></div>
+      <div class="h"><i>🔮</i><span><b>あしたの天気</b> を見ながら<br>仕入れと投資の計画を立てよう。</span></div>
+      <div class="h"><i>🏆</i><span>12日目までに <b>評判 100</b> で成功！<br>家賃が払えなくなると 閉店…</span></div>
+    </div>
+    <button class="cta" id="btnStart">お店をはじめる</button>
+    <div class="t-foot">1プレイ 約3〜5分 ・ タップだけで遊べます</div>
+  </section>
+
+  <!-- PLAY -->
+  <section id="play" class="screen">
+    <div class="head"><div class="shop">🥐 こむぎ堂<small id="rentLbl"></small></div><div class="day" id="dayLbl">1日目 / 12日</div></div>
+    <div class="dots" id="dots"></div>
+
+    <div class="stats">
+      <div class="panel stat" id="stMoney"><div class="l">💰 おかね</div><div class="v"><span class="num">0</span><small>G</small></div></div>
+      <div class="panel stat" id="stMat"><div class="l">🌾 材料</div><div class="v"><span class="num">0</span></div></div>
+      <div class="panel stat" id="stBread"><div class="l">🍞 パン</div><div class="v"><span class="num">0</span><small>個</small></div></div>
+      <div class="panel stat" id="stFame"><div class="l">⭐ 評判</div><div class="v"><span class="num">0</span></div></div>
+    </div>
+
+    <div class="panel goal">
+      <span class="gl">🏆 目標</span>
+      <div class="bar"><i id="goalBar"></i></div>
+      <span class="gv" id="goalTxt">0 / 100</span>
+    </div>
+
+    <div class="fore">
+      <div class="panel fc" id="fcToday"><div class="em"></div><div class="tx"><div class="k">きょう</div><div class="n"></div><div class="e"></div></div></div>
+      <div class="panel fc dim" id="fcTomo"><div class="em"></div><div class="tx"><div class="k">あした</div><div class="n"></div><div class="e"></div></div></div>
+    </div>
+
+    <div class="panel event" id="event"><div class="em"></div><div class="tx"><div class="n"></div><div class="d"></div></div></div>
+
+    <div class="panel shelf">
+      <div class="row"><span class="cap">🚶 予想来客 <b id="expTxt">0〜0人</b></span><span class="pill" id="pill"></span></div>
+      <div class="rack" id="rack"></div>
+      <div class="rack cust" id="rackC"></div>
+      <div class="lv"><div id="lvOven"></div><div id="lvRecipe"></div></div>
+    </div>
+
+    <div class="plan" id="plan">
+      <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      <button class="undo" id="btnUndo">↩ もどす</button>
+    </div>
+
+    <div class="acts" id="acts"></div>
+
+    <button class="cta" id="btnOpen" disabled>しごとを えらぼう</button>
+
+    <div class="veil" id="veil">
+      <div class="report">
+        <h3 id="rpTitle"></h3>
+        <div class="queue" id="rpQueue"></div>
+        <div class="rows" id="rpRows"></div>
+        <div class="say" id="rpSay"></div>
+        <button class="cta" id="btnNext">つぎの日へ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="screen">
+    <div class="r-art" id="rArt"></div>
+    <div class="r-head" id="rHead"></div>
+    <div class="r-sub" id="rSub"></div>
+    <div class="r-rank"><span class="rk" id="rRank"></span><span class="sc" id="rScore"></span></div>
+    <div class="r-grid" id="rGrid"></div>
+    <div class="panel chart">
+      <div class="ct"><span>⭐ 評判のあゆみ</span><span>- - 目標 100</span></div>
+      <div class="plot" id="rPlot"></div>
+    </div>
+    <div class="r-btns">
+      <button class="cta" id="btnRetry">もう一度</button>
+      <button class="cta ghost" id="btnTitle">タイトルへ</button>
+    </div>
+  </section>
+</div>
+
+<script>
+//ENGINE-START
+// 数値バランスはすべてここ。DOM に依存しない純粋なシミュレーション。
+const C={
+  days:12, goal:100, slots:3,
+  startMoney:50, startMat:3, startFame:10,
+  rent:12,
+  buyCost:12, buyQty:6, saleBonus:3,
+  bakeMat:3, ovenBread:[4,6,8], ovenCost:[30,50],
+  price:[4,5,6], fameQ:[0.5,0.75,1], recipeCost:[20,35],
+  adCost:10, adCust:5,
+  cleanFame:2,
+  custBase:5, custPerFame:1/6, festMul:1.6, pressMul:2,
+  mouseLoss:2, lostPer:2, lostCap:4
+};
+const WEATHER={
+  sun:{em:'☀️',name:'はれ',mul:1.2},
+  cloud:{em:'⛅',name:'くもり',mul:1.0},
+  rain:{em:'☔',name:'あめ',mul:0.6}
+};
+const EVENTS={
+  none:{em:'🍃',name:'おだやかな日',desc:'とくに変わったことは なさそう。',tag:''},
+  fest:{em:'🎪',name:'町のお祭り',desc:'お客さんが どっと増える！（×1.6）',tag:'🎪 お祭り'},
+  press:{em:'📰',name:'雑誌の取材',desc:'売れたパンの評判が 2倍になる！',tag:'📰 取材'},
+  sale:{em:'🚚',name:'粉の特売日',desc:'きょうの仕入れは 材料 +3 おまけ。',tag:'🚚 特売'},
+  mouse:{em:'🐭',name:'ネズミ出没',desc:'夜のうちに材料を かじられた…（−2）',tag:'🐭 ネズミ'}
+};
+function rollDay(rng,day){
+  const r=rng(); const weather=r<.45?'sun':r<.8?'cloud':'rain';
+  const e=rng(); let ev='none';
+  if(day>=2){ if(e<.12)ev='fest'; else if(e<.24)ev='press'; else if(e<.37)ev='sale'; else if(e<.47)ev='mouse'; }
+  return {weather,ev};
+}
+const ACTS={
+  buy:{em:'🌾',name:'仕入れ',
+    can:s=>s.money>=C.buyCost,
+    qty:s=>C.buyQty+(s.today.ev==='sale'?C.saleBonus:0),
+    sub:s=>'−'+C.buyCost+'G 🌾+'+ACTS.buy.qty(s),
+    run:s=>{s.money-=C.buyCost;s.mat+=ACTS.buy.qty(s);}},
+  bake:{em:'🍞',name:'パン焼き',
+    can:s=>s.mat>=C.bakeMat,
+    sub:s=>'🌾−'+C.bakeMat+' 🍞+'+C.ovenBread[s.oven],
+    run:s=>{s.mat-=C.bakeMat;s.bread+=C.ovenBread[s.oven];}},
+  ad:{em:'📣',name:'宣伝',
+    can:s=>s.money>=C.adCost,
+    sub:s=>'−'+C.adCost+'G 客+'+C.adCust,
+    run:s=>{s.money-=C.adCost;s.ad+=C.adCust;}},
+  recipe:{em:'📖',name:'新作研究',
+    can:s=>s.recipe<2&&s.money>=C.recipeCost[s.recipe],
+    sub:s=>s.recipe>=2?'MAX':'−'+C.recipeCost[s.recipe]+'G 味UP',
+    run:s=>{s.money-=C.recipeCost[s.recipe];s.recipe++;}},
+  oven:{em:'🔥',name:'オーブン強化',
+    can:s=>s.oven<2&&s.money>=C.ovenCost[s.oven],
+    sub:s=>s.oven>=2?'MAX':'−'+C.ovenCost[s.oven]+'G 🍞+2',
+    run:s=>{s.money-=C.ovenCost[s.oven];s.oven++;}},
+  clean:{em:'🧹',name:'おそうじ',
+    can:s=>true,
+    sub:s=>'0G 評判+'+C.cleanFame,
+    run:s=>{s.fame+=C.cleanFame;}}
+};
+const ACT_ORDER=['buy','bake','ad','recipe','oven','clean'];
+function calcBase(s){
+  return Math.round((C.custBase+s.fame*C.custPerFame)*WEATHER[s.today.weather].mul*(s.today.ev==='fest'?C.festMul:1));
+}
+function newGame(rng){
+  const s={rng,day:0,money:C.startMoney,mat:C.startMat,fame:C.startFame,bread:0,oven:0,recipe:0,ad:0,
+    plan:[],undo:[],today:null,tomorrow:{weather:'cloud',ev:'none'},base:0,mouseLost:0,
+    hist:[],sold:0,lost:0,waste:0,earned:0,over:false,bankrupt:false,win:false};
+  startDay(s); return s;
+}
+function startDay(s){
+  s.day++; s.today=s.tomorrow; s.tomorrow=s.day<C.days?rollDay(s.rng,s.day+1):null;
+  s.bread=0; s.ad=0; s.plan=[]; s.undo=[]; s.mouseLost=0;
+  if(s.today.ev==='mouse'){ s.mouseLost=Math.min(C.mouseLoss,s.mat); s.mat-=s.mouseLost; }
+  s.base=calcBase(s);
+}
+function canAct(s,id){ return s.plan.length<C.slots&&ACTS[id].can(s); }
+function doAct(s,id){
+  if(!canAct(s,id))return false;
+  s.undo.push({money:s.money,mat:s.mat,fame:s.fame,bread:s.bread,oven:s.oven,recipe:s.recipe,ad:s.ad});
+  ACTS[id].run(s); s.plan.push(id); return true;
+}
+function undoAct(s){
+  if(!s.plan.length)return false;
+  Object.assign(s,s.undo.pop()); s.plan.pop(); return true;
+}
+function openShop(s){
+  const noise=Math.floor(s.rng()*3)-1;
+  const cust=Math.max(0,s.base+s.ad+noise);
+  const sold=Math.min(s.bread,cust), lost=cust-sold, waste=s.bread-sold;
+  const income=sold*C.price[s.recipe];
+  const fameUp=Math.round(sold*C.fameQ[s.recipe]*(s.today.ev==='press'?C.pressMul:1));
+  const fameDown=Math.min(C.lostCap,Math.floor(lost/C.lostPer));
+  s.money+=income-C.rent; s.fame=Math.max(0,s.fame+fameUp-fameDown); s.bread=0;
+  s.sold+=sold; s.lost+=lost; s.waste+=waste; s.earned+=income; s.hist.push(s.fame);
+  if(s.money<0){ s.over=true; s.bankrupt=true; }
+  else if(s.day>=C.days){ s.over=true; s.win=s.fame>=C.goal; }
+  return {cust,sold,lost,waste,income,fameUp,fameDown,rent:C.rent};
+}
+function scoreOf(s){ return Math.max(0,s.fame*10+Math.max(0,s.money)); }
+function rankOf(s){
+  if(s.bankrupt)return 'E';
+  if(s.fame>=150)return 'S'; if(s.fame>=120)return 'A'; if(s.fame>=C.goal)return 'B';
+  if(s.fame>=70)return 'C'; return 'D';
+}
+//ENGINE-END
+
+/* ================= UI ================= */
+const $=id=>document.getElementById(id);
+let S=null;
+const BREADS=['🥐','🍞','🥖','🥯','🥨','🧁'];
+const FACES=['🧑','👧','👦','👵','👨','👩','👴'];
+
+function show(id){ document.querySelectorAll('.screen').forEach(e=>e.classList.toggle('on',e.id===id)); }
+
+function tween(el,to){
+  const from=(el._v===undefined)?to:el._v; el._v=to;
+  cancelAnimationFrame(el._raf||0);
+  if(from===to){ el.textContent=to; return; }
+  const t0=performance.now(), d=320;
+  const step=t=>{ const k=Math.min(1,(t-t0)/d); el.textContent=Math.round(from+(to-from)*k); if(k<1)el._raf=requestAnimationFrame(step); };
+  el._raf=requestAnimationFrame(step);
+}
+function setStat(id,val,quiet){
+  const box=$(id), num=box.querySelector('.num'), prev=num._v;
+  tween(num,val);
+  if(quiet||prev===undefined||prev===val)return;
+  box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump');
+  const d=document.createElement('span'); const diff=val-prev;
+  d.className='delta '+(diff>0?'up':'down'); d.textContent=(diff>0?'+':'−')+Math.abs(diff);
+  box.appendChild(d); setTimeout(()=>d.remove(),900);
+}
+
+function buildStatic(){
+  $('dots').innerHTML='<i></i>'.repeat(C.days);
+  $('rack').innerHTML='<span class="empty"></span>'.repeat(24);
+  $('rackC').innerHTML='<span class="empty"></span>'.repeat(24);
+  $('rentLbl').textContent='家賃 '+C.rent+'G/日';
+  $('acts').innerHTML=ACT_ORDER.map(id=>
+    `<button class="act" data-a="${id}"><span class="n">${ACTS[id].em} ${ACTS[id].name}</span><span class="c"></span></button>`).join('');
+  $('acts').querySelectorAll('.act').forEach(b=>b.addEventListener('click',()=>{
+    if(doAct(S,b.dataset.a)) render();
+  }));
+}
+
+function renderForecast(el,d){
+  if(!d){ el.querySelector('.em').textContent='🏁'; el.querySelector('.n').textContent='最終日！'; el.querySelector('.e').textContent='売り切ろう'; el.querySelector('.e').classList.remove('none'); return; }
+  const w=WEATHER[d.weather];
+  el.querySelector('.em').textContent=w.em;
+  el.querySelector('.n').textContent=w.name+' ×'+w.mul.toFixed(1);
+  el.querySelector('.e').textContent=EVENTS[d.ev].tag||'イベントなし'; el.querySelector('.e').classList.toggle('none',d.ev==='none');
+}
+
+function render(quiet){
+  const s=S;
+  $('dayLbl').textContent=s.day+'日目 / '+C.days+'日';
+  [...$('dots').children].forEach((e,i)=>{ e.className=i<s.day-1?'past':(i===s.day-1?'now':''); });
+  setStat('stMoney',s.money,quiet); setStat('stMat',s.mat,quiet); setStat('stBread',s.bread,quiet); setStat('stFame',s.fame,quiet);
+  const gb=$('goalBar'); gb.style.width=Math.min(100,s.fame/C.goal*100)+'%'; gb.classList.toggle('done',s.fame>=C.goal);
+  $('goalTxt').textContent=s.fame+' / '+C.goal;
+
+  renderForecast($('fcToday'),s.today); renderForecast($('fcTomo'),s.tomorrow);
+  const ev=EVENTS[s.today.ev], evb=$('event');
+  evb.querySelector('.em').textContent=ev.em; evb.querySelector('.n').textContent=ev.name; evb.querySelector('.d').textContent=ev.desc;
+
+  const lo=Math.max(0,s.base+s.ad-1), hi=s.base+s.ad+1, mid=s.base+s.ad;
+  $('expTxt').textContent=lo+'〜'+hi+'人';
+  const pill=$('pill');
+  if(s.bread===0){ pill.className='pill none'; pill.textContent='パンがまだない'; }
+  else if(s.bread<lo){ pill.className='pill low'; pill.textContent='あと'+(mid-s.bread)+'個ほしい'; }
+  else if(s.bread>hi){ pill.className='pill over'; pill.textContent=(s.bread-mid)+'個あまりそう'; }
+  else { pill.className='pill ok'; pill.textContent='ちょうどいい！'; }
+  [...$('rack').children].forEach((e,i)=>{
+    const on=i<s.bread, was=!e.classList.contains('empty');
+    if(on&&!was){ e.className='pop'; e.textContent=BREADS[(i*7+s.day)%BREADS.length]; }
+    else if(!on&&was){ e.className='empty'; e.textContent=''; }
+  });
+  [...$('rackC').children].forEach((e,i)=>{
+    const on=i<Math.min(mid,24), was=!e.classList.contains('empty');
+    if(on){ e.className=(was?'':'pop ')+(i<s.bread?'':'wait'); if(!was||e.dataset.d!=s.day){ e.textContent=FACES[(i*5+s.day*3)%FACES.length]; e.dataset.d=s.day; } }
+    else if(was){ e.className='empty'; e.textContent=''; }
+  });
+  $('lvOven').innerHTML='🔥 オーブン<b>Lv.'+(s.oven+1)+'</b>1回'+C.ovenBread[s.oven]+'個';
+  $('lvRecipe').innerHTML='📖 レシピ<b>Lv.'+(s.recipe+1)+'</b>1個'+C.price[s.recipe]+'G';
+
+  const slots=$('plan').querySelectorAll('.slot');
+  slots.forEach((e,i)=>{
+    const id=s.plan[i];
+    if(id){ if(!e.classList.contains('set')||e.dataset.a!==id){ e.className='slot set'; e.dataset.a=id; } e.textContent=ACTS[id].em+' '+ACTS[id].name.slice(0,4); }
+    else { e.className='slot'+(i===s.plan.length?' next':''); e.dataset.a=''; e.textContent='しごと '+(i+1); }
+  });
+  $('btnUndo').disabled=!s.plan.length;
+  $('acts').querySelectorAll('.act').forEach(b=>{
+    const id=b.dataset.a; b.disabled=!canAct(s,id); b.querySelector('.c').textContent=ACTS[id].sub(s);
+  });
+  const left=C.slots-s.plan.length, bo=$('btnOpen');
+  const risky=s.money+Math.min(s.bread,lo)*C.price[s.recipe]<C.rent;
+  bo.disabled=left>0; bo.classList.toggle('warn',left===0&&risky);
+  bo.textContent=left>0?('しごとを あと'+left+'つ えらぼう'):(risky?'⚠️ 家賃ピンチ！それでも開店':WEATHER[s.today.weather].em+' 開店する！');
+}
+
+function showReport(r){
+  const s=S;
+  $('rpTitle').textContent=s.day+'日目の営業おわり';
+  const cap=innerWidth<350?7:10, n=Math.min(r.cust,cap), faces=FACES;
+  let q=''; for(let i=0;i<n;i++)q+=faces[(i*3+s.day)%faces.length];
+  $('rpQueue').textContent=r.cust===0?'…だれも来なかった':q+(r.cust>cap?'…':'');
+  const fameNet=r.fameUp-r.fameDown;
+  const rows=[
+    ['🚶 来客',r.cust+'人',''],
+    ['🍞 売れたパン',r.sold+'個',''],
+    [r.lost>0?'😢 買えずに帰った':'🗑 売れ残り',r.lost>0?r.lost+'人':r.waste+'個',(r.lost>0||r.waste>0)?'down':''],
+    ['💰 売上','+'+r.income+'G','up'],
+    ['🏠 家賃','−'+r.rent+'G','down'],
+    ['⭐ 評判',(fameNet>=0?'+':'−')+Math.abs(fameNet),fameNet>0?'up':(fameNet<0?'down':'')]
+  ];
+  $('rpRows').innerHTML=rows.map((x,i)=>`<div class="rw" style="animation-delay:${i*70}ms"><span>${x[0]}</span><b class="${x[2]}">${x[1]}</b></div>`).join('');
+  let say;
+  if(s.bankrupt) say='家賃が払えない…！お店を続けられなくなった。';
+  else if(r.cust>0&&r.sold===0) say='売るパンがなくて、みんな帰ってしまった…';
+  else if(r.lost>=2) say='パンが足りず '+r.lost+'人を帰してしまった。<br>（品切れで 評判 −'+r.fameDown+'）';
+  else if(r.waste>=3) say=r.waste+'個も余ってしまった。もったいない！';
+  else if(s.today.ev==='press'&&r.sold>0) say='取材は大成功！雑誌にのって評判アップ。';
+  else if(r.sold>0&&r.lost===0&&r.waste===0) say='ぴったり完売！見事な仕込みでした。';
+  else say='きょうも一日おつかれさま。いい調子！';
+  $('rpSay').innerHTML=say;
+  $('btnNext').textContent=s.over?'結果を見る':'つぎの日へ';
+  $('veil').classList.add('on');
+  render();
+}
+
+function showResult(){
+  const s=S, rank=rankOf(s);
+  const T={
+    S:['👑','伝説のパン屋！','町の外からも行列ができる<br>大人気店になった。'],
+    A:['🏆','町いちばんの人気店！','こむぎ堂の名前を<br>知らない人は もういない。'],
+    B:['🎉','目標達成！','町のみんなに愛される<br>お店になった。'],
+    C:['🥲','あと一歩…','評判 100 には あと少し届かなかった。<br>投資のタイミングを見直そう。'],
+    D:['😣','まだまだ修行中…','評判が足りなかった。<br>レシピとオーブンを 早めに育てよう。'],
+    E:['💸','閉店…','お金が尽きてしまった。<br>家賃ぶんの売上は 毎日確保しよう。']
+  }[rank];
+  $('rArt').textContent=T[0]; $('rHead').textContent=T[1]; $('rSub').innerHTML=T[2];
+  $('rRank').textContent='RANK '+rank; $('rScore').textContent='SCORE '+scoreOf(s);
+  const g=[['⭐ 評判',s.fame,''],['💰 おかね',s.money,'G'],['📅 営業',s.hist.length,'日'],
+           ['🍞 売れた',s.sold,'個'],['😢 帰した',s.lost,'人'],['🗑 廃棄',s.waste,'個']];
+  $('rGrid').innerHTML=g.map(x=>`<div class="panel stat"><div class="l">${x[0]}</div><div class="v">${x[1]}<small>${x[2]}</small></div></div>`).join('');
+  const top=Math.max(C.goal*1.15,...s.hist);
+  let h=''; for(let i=0;i<C.days;i++){ const v=s.hist[i];
+    h+=v===undefined?'<i class="nil" style="height:3%"></i>':`<i class="${v>=C.goal?'hit':''}" style="height:${Math.max(3,v/top*100)}%"></i>`; }
+  h+=`<u style="bottom:${C.goal/top*100}%"></u>`;
+  $('rPlot').innerHTML=h;
+  show('result');
+}
+
+function start(){
+  S=newGame(Math.random); window.__kg=S;
+  document.querySelectorAll('.stat .num').forEach(n=>{n._v=undefined;});
+  document.querySelectorAll('.slot').forEach(e=>{e.className='slot';});
+  $('veil').classList.remove('on');
+  render(true); show('play');
+}
+
+buildStatic();
+$('btnStart').addEventListener('click',start);
+$('btnRetry').addEventListener('click',start);
+$('btnTitle').addEventListener('click',()=>show('title'));
+$('btnUndo').addEventListener('click',()=>{ if(undoAct(S)) render(); });
+$('btnOpen').addEventListener('click',()=>{ if(S.plan.length<C.slots||S.over)return; showReport(openShop(S)); });
+$('btnNext').addEventListener('click',()=>{
+  $('veil').classList.remove('on');
+  if(S.over){ showResult(); return; }
+  startDay(S); render();
+});
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('contextmenu',e=>e.preventDefault());
+</script>
+</body>
+</html>
